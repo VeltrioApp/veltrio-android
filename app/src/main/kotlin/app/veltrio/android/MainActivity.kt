@@ -46,6 +46,7 @@ import app.veltrio.android.screens.PlayerScreen
 import app.veltrio.android.screens.SearchScreen
 import app.veltrio.android.screens.SettingsScreen
 import app.veltrio.android.screens.SourcesScreen
+import app.veltrio.shared.AppTheme
 import app.veltrio.shared.ui.Type
 import app.veltrio.shared.ui.VeltrioTheme
 
@@ -54,7 +55,19 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         setContent {
-            VeltrioTheme(dark = true) {
+            val dark = when (Nav.theme) {
+                AppTheme.Dark -> true
+                AppTheme.Light -> false
+                AppTheme.System -> androidx.compose.foundation.isSystemInDarkTheme()
+            }
+            // Dark icons over the light theme's paper, light ones over black.
+            androidx.compose.runtime.SideEffect {
+                androidx.core.view.WindowCompat.getInsetsController(window, window.decorView).apply {
+                    isAppearanceLightStatusBars = !dark
+                    isAppearanceLightNavigationBars = !dark
+                }
+            }
+            VeltrioTheme(dark = dark) {
                 val controller = rememberNavController()
                 Nav.controller = controller
                 Box(Modifier.fillMaxSize().background(VeltrioTheme.palette.background)) {
@@ -87,7 +100,7 @@ private val tabs = listOf("Accueil", "Collection", "Direct", "Sources")
  *  settings above, numbered text tabs below with an amber underline. */
 @Composable
 private fun Tabs() {
-    var selected by rememberSaveable { mutableIntStateOf(0) }
+    val selected = Nav.tab
     val p = VeltrioTheme.palette
     Column(Modifier.fillMaxSize()) {
         Row(
@@ -119,7 +132,7 @@ private fun Tabs() {
             tabs.forEachIndexed { index, label ->
                 val active = index == selected
                 Column(
-                    Modifier.weight(1f).clickable { selected = index }.padding(vertical = 12.dp),
+                    Modifier.weight(1f).clickable { Nav.tab = index }.padding(vertical = 12.dp),
                     horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(5.dp),
                 ) {
                     Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {

@@ -1,17 +1,282 @@
 package app.veltrio.android.screens
 
+import android.content.ClipData
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.toClipEntry
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import app.veltrio.android.Nav
+import app.veltrio.android.ui.Chip
+import app.veltrio.android.ui.Eyebrow
+import app.veltrio.android.ui.GhostButton
+import app.veltrio.android.ui.PageHeader
+import app.veltrio.android.ui.PrimaryButton
+import app.veltrio.android.ui.SectionHeader
+import app.veltrio.shared.AppPrefs
+import app.veltrio.shared.AppTheme
+import app.veltrio.shared.Core
+import app.veltrio.shared.DebridAccount
+import app.veltrio.shared.DebridService
+import app.veltrio.shared.PlayerPrefs
+import app.veltrio.shared.ui.Spacing
 import app.veltrio.shared.ui.Type
 import app.veltrio.shared.ui.VeltrioTheme
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
+/** Settings, the macOS / Windows sections in a column: Sources, Debrid,
+ *  Accounts, Playback, Appearance, Storage, About. */
 @Composable
 fun SettingsScreen() {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text("Settings", style = Type.title(18), color = VeltrioTheme.palette.textTertiary)
+    val p = VeltrioTheme.palette
+    Column(Modifier.fillMaxSize().background(p.background).statusBarsPadding()) {
+        Row(Modifier.padding(Spacing.md), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(40.dp).clickable { Nav.back() }, contentAlignment = Alignment.Center) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, "Retour", tint = p.textPrimary)
+            }
+        }
+        Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = Spacing.xl), verticalArrangement = Arrangement.spacedBy(Spacing.xl)) {
+            PageHeader("Préférences", "Réglages")
+            Section(1, "Sources") {
+                Body("Les addons Stremio et les playlists IPTV se gèrent dans l'onglet Sources.")
+                GhostButton("Ouvrir les sources") { Nav.showTab(3) }
+            }
+            Section(2, "Debrid") {
+                Body("Un service debrid lit les torrents en direct depuis ses serveurs, en HTTPS, sans partage pair à pair. Les flux qu'il a déjà en cache sont marqués ⚡ et passent en tête. Les clés restent sur cet appareil, chiffrées par Android.")
+                val accounts by DebridService.accounts.collectAsState()
+                accounts.values.forEach { DebridCard(it) }
+            }
+            Section(3, "Comptes") {
+                Body("Importez votre bibliothèque dans la Collection et suivez ce que vous regardez. L'import ne fait qu'ajouter : il ne retire rien et ne remet aucune progression à zéro.")
+                AccountsSection()
+            }
+            Section(4, "Lecture") { PlaybackSection() }
+            Section(5, "Apparence") {
+                Body("Sombre : le noir de salle de cinéma, l'expérience de référence. Clair : un papier chaud pour la journée.")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    AppTheme.entries.forEach { t ->
+                        Chip(t.label, Nav.theme == t) {
+                            AppPrefs.update { it.copy(theme = t) }
+                            Nav.theme = t
+                        }
+                    }
+                }
+            }
+            Section(6, "Stockage") { StorageSection() }
+            Section(7, "À propos") {
+                val context = LocalContext.current
+                val version = remember { context.packageManager.getPackageInfo(context.packageName, 0).versionName }
+                Text("Veltrio $version", style = Type.title(18), color = p.textPrimary)
+                Body("Veltrio ne fournit aucun contenu : il affiche ce que renvoient les sources que vous installez.")
+                Body("Lecture par libmpv (LGPL 2.1+, mpv.io) et FFmpeg (LGPL 2.1+).")
+            }
+        }
     }
 }
+
+@Composable
+private fun Section(number: Int, title: String, content: @Composable () -> Unit) {
+    val p = VeltrioTheme.palette
+    Column(Modifier.padding(horizontal = Spacing.lg), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        // The page header already draws the first rule.
+        if (number > 1) Box(Modifier.fillMaxWidth().height(1.dp).background(p.hairline))
+        SectionHeader(number, title)
+        content()
+    }
+}
+
+@Composable
+private fun Body(text: String) = Text(text, style = Type.body(13), color = VeltrioTheme.palette.textSecondary)
+
+@Composable
+internal fun TextInput(value: String, onChange: (String) -> Unit, placeholder: String, modifier: Modifier = Modifier, secret: Boolean = false) {
+    val p = VeltrioTheme.palette
+    Box(modifier.fillMaxWidth().border(1.dp, p.borderStrong).padding(12.dp)) {
+        if (value.isEmpty()) Text(placeholder, style = Type.mono(13), color = p.textQuaternary)
+        BasicTextField(
+            value, onChange, Modifier.fillMaxWidth(), singleLine = true,
+            textStyle = Type.mono(13).copy(color = p.textPrimary), cursorBrush = SolidColor(p.accent),
+            visualTransformation = if (secret) androidx.compose.ui.text.input.PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
+        )
+    }
+}
+
+internal fun openUrl(context: android.content.Context, url: String) {
+    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+}
+
+@Composable
+private fun DebridCard(account: DebridAccount) {
+    val p = VeltrioTheme.palette
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val clipboard = LocalClipboard.current
+    var key by remember { mutableStateOf("") }
+    val provider = account.provider
+    Column(Modifier.fillMaxWidth().border(1.dp, p.border).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Box(Modifier.size(10.dp).clip(CircleShape).background(Color(provider.color)))
+            Text(provider.label, style = Type.title(16), color = p.textPrimary, modifier = Modifier.weight(1f))
+            if (account.isConnected) Text("CONNECTÉ", style = Type.eyebrow(9, 0.2f), color = p.success)
+        }
+        when {
+            account.isConnected -> {
+                Text(
+                    listOfNotNull(account.user?.ifEmpty { null }, account.premium?.let { if (it) "Premium" else "Compte gratuit" }).joinToString(" · ").ifEmpty { "Connecté" },
+                    style = Type.mono(12), color = p.textSecondary,
+                )
+                GhostButton("Déconnecter", color = p.danger) { DebridService.disconnect(provider) }
+            }
+            account.pendingCode != null -> {
+                Body("Ouvrez ${account.pendingUrl} et saisissez ce code :")
+                Text(account.pendingCode ?: "", style = Type.mono(28, FontWeight.Bold), color = p.accentText,
+                    modifier = Modifier.clickable { scope.launch { clipboard.setClipEntry(ClipData.newPlainText("code", account.pendingCode).toClipEntry()) } })
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    PrimaryButton("Ouvrir la page", icon = Icons.AutoMirrored.Filled.OpenInNew) { openUrl(context, account.pendingUrl ?: provider.keyPage) }
+                    GhostButton("Annuler") { DebridService.cancelCodeFlow() }
+                }
+                Text("En attente de la validation…", style = Type.caption(12), color = p.textTertiary)
+            }
+            provider.usesCode -> {
+                Body(provider.tagline)
+                PrimaryButton("Se connecter", loading = account.busy) { DebridService.startCodeFlow(provider) }
+            }
+            else -> {
+                Body(provider.tagline)
+                TextInput(key, { key = it }, "Clé d'API", secret = true)
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    PrimaryButton("Connecter", enabled = key.isNotBlank(), loading = account.busy) {
+                        scope.launch { DebridService.connectWithKey(provider, key) }
+                    }
+                    GhostButton("Obtenir la clé", icon = Icons.AutoMirrored.Filled.OpenInNew) { openUrl(context, provider.keyPage) }
+                }
+            }
+        }
+        account.error?.let { Text(it, style = Type.caption(12), color = p.danger) }
+    }
+}
+
+@Composable
+private fun PlaybackSection() {
+    val p = VeltrioTheme.palette
+    var prefs by remember { mutableStateOf(PlayerPrefs.current) }
+    fun set(change: (PlayerPrefs) -> PlayerPrefs) {
+        PlayerPrefs.update(change)
+        prefs = PlayerPrefs.current
+    }
+    Body("Le lecteur s'appuie sur mpv, comme sur macOS : MKV, HEVC, HDR, pistes audio et sous-titres intégrés, décodage matériel quand l'appareil le permet. Ces choix valent pour la prochaine vidéo ouverte.")
+    Picker("Langue audio préférée", PlayerPrefs.languages, prefs.audioLang) { v -> set { it.copy(audioLang = v) } }
+    Picker("Sous-titres préférés", PlayerPrefs.languages, prefs.subtitleLang) { v -> set { it.copy(subtitleLang = v) } }
+    Picker("Décodage vidéo", PlayerPrefs.decoders, prefs.hwdec) { v -> set { it.copy(hwdec = v) } }
+    Picker("Mémoire tampon (flux réseau)", PlayerPrefs.cacheSizes.map { it to "$it Mo" }, prefs.cacheMiB) { v -> set { it.copy(cacheMiB = v) } }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text("Enchaîner l'épisode suivant (compte à rebours de 10 s en fin d'épisode)", style = Type.body(14), color = p.textPrimary, modifier = Modifier.weight(1f))
+        Switch(prefs.autoNextEpisode, { v -> set { it.copy(autoNextEpisode = v) } }, colors = SwitchDefaults.colors(checkedTrackColor = p.accent, checkedThumbColor = p.onAccent))
+    }
+    Text(
+        "Des sous-titres d'addons dans la langue choisie s'ajoutent quand le fichier n'en a pas et que l'audio n'est pas déjà dans cette langue. Gestes : toucher pour afficher les commandes, double toucher à gauche ou à droite pour reculer ou avancer de 10 s, au centre pour pause.",
+        style = Type.caption(12), color = p.textTertiary,
+    )
+}
+
+@Composable
+internal fun <T> Picker(label: String, options: List<Pair<T, String>>, selected: T, onSelect: (T) -> Unit) {
+    val p = VeltrioTheme.palette
+    var open by remember { mutableStateOf(false) }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(label.uppercase(), style = Type.eyebrow(9, 0.18f), color = p.textTertiary)
+        Box {
+            Row(
+                Modifier.fillMaxWidth().border(1.dp, p.borderStrong).clickable { open = true }.padding(horizontal = 12.dp, vertical = 11.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(options.firstOrNull { it.first == selected }?.second ?: "—", style = Type.body(14), color = p.textPrimary, modifier = Modifier.weight(1f))
+                Icon(Icons.Filled.ArrowDropDown, null, tint = p.textSecondary)
+            }
+            DropdownMenu(open, { open = false }) {
+                options.forEach { (value, text) ->
+                    DropdownMenuItem({ Text(text, fontWeight = if (value == selected) FontWeight.Bold else FontWeight.Normal) }, {
+                        onSelect(value)
+                        open = false
+                    })
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StorageSection() {
+    val p = VeltrioTheme.palette
+    val scope = rememberCoroutineScope()
+    var cacheSize by remember { mutableStateOf<Long?>(null) }
+    LaunchedEffect(Unit) { cacheSize = withContext(Dispatchers.IO) { Core.torrentCacheSize() } }
+    Body("Addons, playlists, comptes, collection et progression sont enregistrés sur cet appareil uniquement.")
+    DownloadsSection()
+    Body("Les torrents lus sans debrid sont téléchargés dans le cache de l'app, gardé pour reprendre plus vite. Le vider libère la place ; un torrent en cours de lecture n'est pas touché.")
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        GhostButton("Vider le cache des torrents") {
+            scope.launch {
+                cacheSize = withContext(Dispatchers.IO) {
+                    Core.clearTorrentCache()
+                    Core.torrentCacheSize()
+                }
+            }
+        }
+        cacheSize?.let { Text(android.text.format.Formatter.formatShortFileSize(LocalContext.current, it), style = Type.mono(12), color = p.textTertiary) }
+    }
+}
+
+/** Filled in by the downloads lot. */
+@Composable
+private fun DownloadsSection() {}
+
+/** Filled in by the accounts lot. */
+@Composable
+private fun AccountsSection() {}

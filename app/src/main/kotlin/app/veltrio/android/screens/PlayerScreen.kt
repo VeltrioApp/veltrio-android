@@ -87,7 +87,10 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import app.veltrio.android.Nav
+import app.veltrio.shared.AddonSubtitle
 import app.veltrio.shared.Core
+import app.veltrio.shared.PlayerPrefs
+import app.veltrio.shared.SubtitleFetcher
 import app.veltrio.shared.PlayRequest
 import app.veltrio.shared.WatchStore
 import app.veltrio.shared.player.MpvPlayer
@@ -182,6 +185,26 @@ fun PlayerScreen(request: PlayRequest) {
         while (true) {
             delay(5000)
             report()
+        }
+    }
+
+    // Addon subtitles, as macOS: listed in the menu, and one in the chosen
+    // language added when the file has none and the audio isn't in it.
+    var addonSubtitles by remember { mutableStateOf<List<AddonSubtitle>>(emptyList()) }
+    var addedSubtitles by remember { mutableStateOf(setOf<String>()) }
+    LaunchedEffect(state.loaded) {
+        val type = request.contentType ?: return@LaunchedEffect
+        val id = request.videoId ?: request.contentId ?: return@LaunchedEffect
+        if (!state.loaded || request.isLive || addonSubtitles.isNotEmpty()) return@LaunchedEffect
+        addonSubtitles = SubtitleFetcher.fetch(type, id)
+        val wanted = PlayerPrefs.current.subtitleLang.ifEmpty { return@LaunchedEffect }
+        val synonyms = PlayerPrefs.synonyms(wanted)
+        val s = player.state.value
+        val audioLang = s.audio.firstOrNull { it.id == s.audioId }?.lang?.lowercase()
+        if (s.subtitles.any { it.lang?.lowercase() in synonyms } || audioLang in synonyms) return@LaunchedEffect
+        SubtitleFetcher.pick(addonSubtitles, listOf(wanted))?.let {
+            player.addSubtitle(it.url, "${it.language} · ${it.addonName}")
+            addedSubtitles = addedSubtitles + it.url
         }
     }
 
@@ -285,6 +308,12 @@ fun PlayerScreen(request: PlayRequest) {
                         Option("Désactivés", null, state.subtitleId == null) { player.selectSubtitle(null) }
                         state.subtitles.forEach { t ->
                             Option(t.label, if (t.external) "EXTERNE" else t.codec?.uppercase(), t.id == state.subtitleId) { player.selectSubtitle(t.id) }
+                        }
+                        addonSubtitles.filter { it.url !in addedSubtitles }.forEach { sub ->
+                            Option(sub.language, sub.addonName.uppercase(), false) {
+                                player.addSubtitle(sub.url, "${sub.language} · ${sub.addonName}")
+                                addedSubtitles = addedSubtitles + sub.url
+                            }
                         }
                     }
                     Panel.Speed -> speeds.forEach { s ->
@@ -544,7 +573,10 @@ private fun EndOfEpisode(request: PlayRequest, onStay: () -> Unit, onEpisodes: (
         }
     }
 
+    // With "Enchaîner l'épisode suivant" off, nothing happens on its own.
+    val auto = PlayerPrefs.current.autoNextEpisode
     LaunchedEffect(Unit) {
+        if (!auto) return@LaunchedEffect
         repeat(10) {
             delay(1000)
             countdown--
@@ -562,6 +594,7 @@ private fun EndOfEpisode(request: PlayRequest, onStay: () -> Unit, onEpisodes: (
         Text(
             error ?: when {
                 finding -> "Recherche du flux…"
+                !auto -> ""
                 hasNext -> "Épisode suivant dans ${countdown.coerceAtLeast(0)} s"
                 else -> "Retour aux épisodes dans ${countdown.coerceAtLeast(0)} s"
             },

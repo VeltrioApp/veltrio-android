@@ -20,6 +20,8 @@ object Storage {
     /** Called once from the Application, before anything else. */
     fun init(context: Context) {
         folder = context.filesDir
+        AppPrefs.load()
+        PlayerPrefs.load()
         Core.init(context)
         WatchStore.init()
     }

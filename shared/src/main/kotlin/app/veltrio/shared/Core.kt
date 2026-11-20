@@ -36,7 +36,16 @@ object Core {
         Suggestion("WatchHub", "https://watchhub.strem.io/manifest.json", "Des liens de streaming légaux : Apple TV, Prime, etc."),
     )
 
+    /** Where torrents played without debrid are kept: the core writes
+     *  under $HOME/.cache/veltrio/torrents, so HOME points into the app's
+     *  cache (an Android process has none of its own it can write to). */
+    lateinit var torrentCache: java.io.File
+        private set
+
     internal fun init(context: Context) {
+        android.system.Os.setenv("HOME", context.cacheDir.absolutePath, true)
+        android.system.Os.setenv("TMPDIR", context.cacheDir.absolutePath, true)
+        torrentCache = java.io.File(context.cacheDir, ".cache/veltrio/torrents")
         _addons.value = Storage.load(ADDONS_FILE, ListSerializer(AddonInfo.serializer()), emptyList())
         _disabled.value = Storage.load(DISABLED_FILE, SetSerializer(String.serializer()), emptySet())
     }
@@ -205,6 +214,7 @@ object Core {
             is StreamSource.Url -> if (isPlayable(source.url)) source.url else error("Ce flux ne se lit pas dans l'app.")
             is StreamSource.Torrent -> {
                 if (DebridService.anyConnected) DebridService.resolve(source.infoHash, season, episode)?.let { return it }
+                streaming += source.infoHash.lowercase()
                 torrents.startStream(source.infoHash, source.sources, source.fileIdx)
             }
             else -> error("Ce flux ne se lit pas dans l'app.")
@@ -218,8 +228,22 @@ object Core {
         else -> null
     }
 
+    /** Torrents currently streamed: their files are kept when the cache is cleared. */
+    private val streaming = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
+    /** Size of the torrent cache, in bytes. */
+    fun torrentCacheSize(): Long = torrentCache.walkBottomUp().filter { it.isFile }.sumOf { it.length() }
+
+    /** Frees the torrent cache; a torrent being played isn't touched. */
+    fun clearTorrentCache() {
+        torrentCache.listFiles()?.forEach { f ->
+            if (streaming.none { f.name.contains(it, ignoreCase = true) }) f.deleteRecursively()
+        }
+    }
+
     /** Stops seeding a torrent once the player closes. */
     fun stopTorrent(infoHash: String) {
+        streaming -= infoHash.lowercase()
         scope.launch { runCatching { torrents.stopStream(infoHash, false) } }
     }
 

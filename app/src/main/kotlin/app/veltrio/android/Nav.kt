@@ -1,5 +1,7 @@
 package app.veltrio.android
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.navigation.NavController
 import app.veltrio.shared.AddonInfo
 import app.veltrio.shared.CatalogInfo
@@ -16,6 +18,18 @@ data class CatalogRequest(val addon: AddonInfo, val catalog: CatalogInfo)
  *  route names, rather than serialized into the route. */
 object Nav {
     lateinit var controller: NavController
+
+    /** The section shown under the top bar: 0 Accueil … 3 Sources. */
+    var tab by androidx.compose.runtime.mutableIntStateOf(0)
+
+    /** The theme in use, changed live from Settings. */
+    var theme by androidx.compose.runtime.mutableStateOf(app.veltrio.shared.AppPrefs.current.theme)
+
+    /** Back to the top level, on one of the four sections. */
+    fun showTab(index: Int) {
+        tab = index
+        controller.popBackStack("tabs", inclusive = false)
+    }
     private val args = mutableMapOf<String, Any>()
     private val counter = AtomicLong()
 

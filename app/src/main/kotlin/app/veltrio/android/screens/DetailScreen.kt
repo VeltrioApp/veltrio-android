@@ -57,6 +57,7 @@ import app.veltrio.android.ui.GhostButton
 import app.veltrio.android.ui.LoadingRow
 import app.veltrio.android.ui.PrimaryButton
 import app.veltrio.shared.Core
+import app.veltrio.shared.DebridService
 import app.veltrio.shared.EpisodeItem
 import app.veltrio.shared.PlayRequest
 import app.veltrio.shared.StreamItem
@@ -70,6 +71,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 private val qualities = listOf("Tout", "4K", "1080p", "720p")
+private const val CACHED = "⚡ En cache"
 
 /** A title's page, as macOS's DetailView on a phone's width: the backdrop,
  *  poster and facts, Watch / Save, credits; for a series the seasons and
@@ -96,7 +98,15 @@ fun DetailScreen(request: DetailRequest) {
         streams = null
         quality = "Tout"
         source = null
-        loadJob = scope.launch { streams = Core.fetchStreams(request.type, id) }
+        loadJob = scope.launch {
+            val fetched = Core.fetchStreams(request.type, id)
+            streams = fetched
+            // Ask the debrid services what they have cached: ⚡ first.
+            if (DebridService.anyConnected) {
+                DebridService.prefetch(fetched.mapNotNull { it.infoHash })
+                streams = fetched.sortedByDescending { it.cachedOn != null }
+            }
+        }
     }
 
     LaunchedEffect(request) {
@@ -161,7 +171,11 @@ fun DetailScreen(request: DetailRequest) {
     }
 
     val visible = streams.orEmpty().filter {
-        (source == null || it.addonName == source) && (quality == "Tout" || it.quality == quality)
+        (source == null || it.addonName == source) && when (quality) {
+            "Tout" -> true
+            CACHED -> it.cachedOn != null
+            else -> it.quality == quality
+        }
     }
 
     LazyColumn(Modifier.fillMaxSize().background(p.background), contentPadding = PaddingValues(bottom = Spacing.xl)) {
@@ -285,7 +299,9 @@ fun DetailScreen(request: DetailRequest) {
                         if (streams != null) Eyebrow("${visible.size} sur ${streams!!.size}", p.textTertiary)
                     }
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        qualities.forEach { q -> Chip(q, q == quality) { quality = q } }
+                        // "⚡ En cache" only means something with a debrid service connected.
+                        val filters = if (DebridService.anyConnected) listOf("Tout", CACHED) + qualities.drop(1) else qualities
+                        filters.forEach { q -> Chip(q, q == quality) { quality = q } }
                         streams.orEmpty().map { it.addonName }.distinct().takeIf { it.size > 1 }?.forEach { name ->
                             Chip(name, name == source) { source = if (source == name) null else name }
                         }
@@ -355,6 +371,7 @@ private fun StreamRow(stream: StreamItem, onClick: () -> Unit) {
             Column(Modifier.width(64.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Text(stream.quality, style = Type.mono(13, FontWeight.Bold), color = p.accentText)
                 Text(stream.kind, style = Type.eyebrow(8, 0.16f), color = p.textTertiary)
+                stream.cachedOn?.let { Text("⚡ ${it.short}", style = Type.mono(10, FontWeight.Bold), color = p.success) }
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(stream.name, style = Type.label(13), color = p.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)

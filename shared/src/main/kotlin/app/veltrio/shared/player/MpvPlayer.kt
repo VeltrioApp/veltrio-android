@@ -52,13 +52,14 @@ class MpvPlayer(context: Context) : SurfaceHolder.Callback, MPVLib.EventObserver
             setOptionString("vo", "gpu")
             setOptionString("gpu-context", "android")
             setOptionString("opengl-es", "yes")
-            setOptionString("hwdec", "mediacodec-copy")
+            val prefs = app.veltrio.shared.PlayerPrefs.current
+            setOptionString("hwdec", prefs.hwdec)
             setOptionString("hwdec-codecs", "h264,hevc,mpeg4,mpeg2video,vp8,vp9,av1")
             setOptionString("ao", "audiotrack,opensles")
             setOptionString("tls-verify", "no")
             setOptionString("cache", "yes")
-            setOptionString("demuxer-max-bytes", "${64 * 1024 * 1024}")
-            setOptionString("demuxer-max-back-bytes", "${32 * 1024 * 1024}")
+            setOptionString("demuxer-max-bytes", "${prefs.cacheMiB * 1024 * 1024}")
+            setOptionString("demuxer-max-back-bytes", "${prefs.cacheMiB / 2 * 1024 * 1024}")
             setOptionString("user-agent", "Veltrio-Android/0.1")
             // No fontconfig on Android: libass reads the system fonts.
             setOptionString("sub-fonts-dir", "/system/fonts")
@@ -66,8 +67,9 @@ class MpvPlayer(context: Context) : SurfaceHolder.Callback, MPVLib.EventObserver
             setOptionString("sub-font", "Roboto")
             setOptionString("sub-font-size", "46")
             setOptionString("sub-border-size", "2.5")
-            setOptionString("slang", java.util.Locale.getDefault().language + ",fr,fre,fra,en,eng")
-            setOptionString("alang", java.util.Locale.getDefault().language + ",fr,fre,fra,en,eng")
+            // The chosen language under all its codes; else the file's default.
+            languages(prefs.subtitleLang)?.let { setOptionString("slang", it) }
+            languages(prefs.audioLang)?.let { setOptionString("alang", it) }
             setOptionString("ytdl", "no")
             setOptionString("keep-open", "yes")
             setOptionString("force-window", "no")
@@ -90,6 +92,9 @@ class MpvPlayer(context: Context) : SurfaceHolder.Callback, MPVLib.EventObserver
         }
     }
 
+    private fun languages(code: String) =
+        code.takeIf { it.isNotEmpty() }?.let { app.veltrio.shared.PlayerPrefs.synonyms(it).joinToString(",") }
+
     fun load(url: String, start: Double = 0.0) {
         _state.value = PlayerState()
         mpv.setPropertyString("start", if (start > 0) "$start" else "none")
@@ -103,7 +108,7 @@ class MpvPlayer(context: Context) : SurfaceHolder.Callback, MPVLib.EventObserver
     fun setSpeed(speed: Double) = mpv.setPropertyDouble("speed", speed)
     fun selectAudio(id: Int) = mpv.setPropertyString("aid", "$id")
     fun selectSubtitle(id: Int?) = mpv.setPropertyString("sid", id?.toString() ?: "no")
-    fun addSubtitle(url: String, title: String) = mpv.command(arrayOf("sub-add", url, "auto", title))
+    fun addSubtitle(url: String, title: String) = mpv.command(arrayOf("sub-add", url, "select", title))
 
     /** "fit", "fill" (crop to the screen) or "stretch". */
     fun setAspect(mode: String) {
