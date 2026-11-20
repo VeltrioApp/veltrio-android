@@ -1,5 +1,6 @@
 package app.veltrio.shared
 
+import app.veltrio.shared.i18n.tr
 import kotlinx.coroutines.delay
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -60,9 +61,9 @@ internal object RealDebridClient {
                 FormBody.Builder().add("client_id", id).add("client_secret", secret).add("code", deviceCode)
                     .add("grant_type", "http://oauth.net/grant_type/device/1.0").build(),
             ).build(),
-            "Real-Debrid",
+            tr("Real-Debrid"),
         )
-        return token.str("access_token") ?: throw ServiceException("Real-Debrid a refusé l'autorisation.")
+        return token.str("access_token") ?: throw ServiceException(tr("Real-Debrid a refusé l'autorisation."))
     }
 
     suspend fun user(token: String): Pair<String, Boolean> {
@@ -76,7 +77,7 @@ internal object RealDebridClient {
      *  null comes back (another service or the local engine takes over). */
     suspend fun resolve(infoHash: String, season: Int?, episode: Int?, token: String): String? {
         val added = post("torrents/addMagnet", token, mapOf("magnet" to "magnet:?xt=urn:btih:$infoHash"))
-        val id = added.str("id") ?: throw ServiceException("Real-Debrid n'a pas accepté le magnet.")
+        val id = added.str("id") ?: throw ServiceException(tr("Real-Debrid n'a pas accepté le magnet."))
         try {
             var info = waitFor(id, token) { it.array("files").isNotEmpty() || it.str("status") in failed }
             val files = info.array("files")
@@ -84,7 +85,7 @@ internal object RealDebridClient {
                 delete(id, token); return null
             }
             val pick = DebridFilePicker.pick(files, { it.str("path") ?: "" }, { it.long("bytes") }, season, episode)
-                ?: run { delete(id, token); throw ServiceException("Aucune vidéo dans ce torrent.") }
+                ?: run { delete(id, token); throw ServiceException(tr(tr("Aucune vidéo dans ce torrent."))) }
             if (info.str("status") == "waiting_files_selection") post("torrents/selectFiles/$id", token, mapOf("files" to pick.long("id").toString()))
             info = waitFor(id, token) { it.str("status") == "downloaded" || it.str("status") in failed }
             val link = info.array("links").firstOrNull()?.string
@@ -121,7 +122,7 @@ internal object RealDebridClient {
         Http.json(
             Request.Builder().url(API + path).header("Authorization", "Bearer $token")
                 .post(FormBody.Builder().apply { form.forEach { (k, v) -> add(k, v) } }.build()).build(),
-            "Real-Debrid",
+            tr("Real-Debrid"),
         )
 }
 
@@ -146,18 +147,18 @@ internal object TorBoxClient {
         val form = MultipartBody.Builder().setType(MultipartBody.FORM).addFormDataPart("magnet", "magnet:?xt=urn:btih:$infoHash").build()
         val torrentId = call("torrents/createtorrent", key, Request.Builder().post(form)).long("torrent_id")
         val torrent = call("torrents/mylist?id=$torrentId&bypass_cache=true", key)
-        if (torrent.bool("download_present") != true) throw ServiceException("Ce torrent n'est pas en cache sur TorBox.")
+        if (torrent.bool("download_present") != true) throw ServiceException(tr("Ce torrent n'est pas en cache sur TorBox."))
         val pick = DebridFilePicker.pick(torrent.array("files"), { it.str("name") ?: "" }, { it.long("size") }, season, episode)
-            ?: throw ServiceException("Aucune vidéo dans ce torrent.")
+            ?: throw ServiceException(tr(tr("Aucune vidéo dans ce torrent.")))
         return call("torrents/requestdl?token=${enc(key)}&torrent_id=$torrentId&file_id=${pick.long("id")}", key).string
-            ?: throw ServiceException("TorBox n'a pas renvoyé de lien.")
+            ?: throw ServiceException(tr("TorBox n'a pas renvoyé de lien."))
     }
 
     /** TorBox wraps answers in {success, detail, data}. */
     private suspend fun call(path: String, key: String, builder: Request.Builder = Request.Builder()): JsonElement? {
         val json = Http.json(builder.url(API + path).header("Authorization", "Bearer $key").build(), "TorBox")
         if (json.bool("success") == true && json["data"] != null) return json["data"]
-        throw ServiceException(json.str("detail") ?: "TorBox a refusé la requête.")
+        throw ServiceException(json.str("detail") ?: tr("TorBox a refusé la requête."))
     }
 }
 
@@ -179,13 +180,13 @@ internal object PremiumizeClient {
     suspend fun resolve(infoHash: String, season: Int?, episode: Int?, key: String): String {
         val json = call("transfer/directdl", key, FormBody.Builder().add("src", "magnet:?xt=urn:btih:$infoHash").build())
         val pick = DebridFilePicker.pick(json.array("content"), { it.str("path") ?: "" }, { it.long("size") }, season, episode)
-        return pick?.str("link") ?: throw ServiceException("Aucune vidéo dans ce torrent.")
+        return pick?.str("link") ?: throw ServiceException(tr("Aucune vidéo dans ce torrent."))
     }
 
     private suspend fun call(path: String, key: String, form: FormBody? = null): JsonElement {
         val url = "$API$path${if ('?' in path) '&' else '?'}apikey=${enc(key)}"
         val json = Http.json(Request.Builder().url(url).apply { form?.let { post(it) } }.build(), "Premiumize")
-        json.str("status")?.let { if (it != "success") throw ServiceException(json.str("message") ?: "Premiumize a refusé la requête.") }
+        json.str("status")?.let { if (it != "success") throw ServiceException(json.str("message") ?: tr("Premiumize a refusé la requête.")) }
         return json
     }
 }

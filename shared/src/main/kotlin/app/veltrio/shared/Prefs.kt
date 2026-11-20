@@ -1,14 +1,15 @@
 package app.veltrio.shared
 
+import app.veltrio.shared.i18n.tr
 import kotlinx.serialization.Serializable
 
-enum class AppTheme(val label: String) { System("Système"), Dark("Sombre"), Light("Clair") }
+enum class AppTheme(val label: String) { System(tr("Système")), Dark(tr("Sombre")), Light(tr("Clair")) }
 
 enum class PlaybackProfile(val label: String, val blurb: String) {
-    Balanced("Équilibré", "Réglages sûrs, bons sur tout appareil."),
-    Quality("Qualité maximale", "Meilleure image, plus de calcul ; tone mapping HDR soigné."),
-    Performance("Performances", "Peu de calcul, peu d'énergie ; filtres d'image simples."),
-    Audiophile("Audiophile", "Son en bitstream (DTS, AC3…) vers l'ampli ; tampon audio plus grand."),
+    Balanced(tr("Équilibré"), tr("Réglages sûrs, bons sur tout appareil.")),
+    Quality(tr("Qualité maximale"), tr("Meilleure image, plus de calcul ; tone mapping HDR soigné.")),
+    Performance(tr("Performances"), tr("Peu de calcul, peu d'énergie ; filtres d'image simples.")),
+    Audiophile(tr("Audiophile"), tr("Son en bitstream (DTS, AC3…) vers l'ampli ; tampon audio plus grand.")),
 }
 
 /** App-wide choices (app-prefs.json). */
@@ -62,16 +63,16 @@ data class PlayerPrefs(
 
         /** Languages offered in Settings, ISO 639-2 as mpv and the servers report them. */
         val languages = listOf(
-            "" to "Automatique", "fre" to "Français", "eng" to "Anglais", "spa" to "Espagnol", "ger" to "Allemand",
-            "ita" to "Italien", "por" to "Portugais", "rus" to "Russe", "jpn" to "Japonais", "kor" to "Coréen",
-            "chi" to "Chinois", "ara" to "Arabe", "dut" to "Néerlandais", "swe" to "Suédois", "pol" to "Polonais",
-            "tur" to "Turc", "hin" to "Hindi",
+            "" to tr("Automatique"), "fre" to tr("Français"), "eng" to tr("Anglais"), "spa" to tr("Espagnol"), "ger" to tr("Allemand"),
+            "ita" to tr("Italien"), "por" to tr("Portugais"), "rus" to tr("Russe"), "jpn" to tr("Japonais"), "kor" to tr("Coréen"),
+            "chi" to tr("Chinois"), "ara" to tr("Arabe"), "dut" to tr("Néerlandais"), "swe" to tr("Suédois"), "pol" to tr("Polonais"),
+            "tur" to tr("Turc"), "hin" to tr("Hindi"),
         )
-        val decoders = listOf("mediacodec-copy" to "Matériel (sûr)", "mediacodec" to "Matériel (direct)", "no" to "Logiciel")
+        val decoders = listOf("mediacodec-copy" to tr("Matériel (sûr)"), "mediacodec" to tr("Matériel (direct)"), "no" to tr("Logiciel"))
         val cacheSizes = listOf(32, 64, 150, 300)
         val toneMappings = listOf(
-            "auto" to "Automatique", "bt.2446a" to "BT.2446a (équilibré)", "bt.2390" to "BT.2390 (cinéma)",
-            "hable" to "Hable", "reinhard" to "Reinhard", "clip" to "Aucun (écrêter)",
+            "auto" to tr("Automatique"), "bt.2446a" to tr("BT.2446a (équilibré)"), "bt.2390" to tr("BT.2390 (cinéma)"),
+            "hable" to tr("Hable"), "reinhard" to tr("Reinhard"), "clip" to tr("Aucun (écrêter)"),
         )
 
         /** The codes a language goes by: ISO 639-1, -2/B and -2/T. */

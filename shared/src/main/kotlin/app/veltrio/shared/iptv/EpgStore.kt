@@ -1,5 +1,6 @@
 package app.veltrio.shared.iptv
 
+import app.veltrio.shared.i18n.tr
 import android.util.Xml
 import app.veltrio.shared.Http
 import kotlinx.coroutines.CoroutineScope
@@ -61,7 +62,7 @@ object EpgStore {
                 if (url == null) apply(playlist.id, emptyMap(), emptyMap())
                 else fetchAndParse(url, live).let { (p, m) -> apply(playlist.id, p, m) }
             } catch (e: Exception) {
-                error = "Guide TV indisponible : ${e.message}"
+                error = tr("Guide TV indisponible : %s", e.message)
                 apply(playlist.id, emptyMap(), emptyMap())
             } finally {
                 _loading.value = false
@@ -123,7 +124,7 @@ object EpgStore {
         val to = now.plusSeconds(24 * 3600)
         val client = Http.client.newBuilder().readTimeout(3, java.util.concurrent.TimeUnit.MINUTES).build()
         client.newCall(Request.Builder().url(url).build()).execute().use { response ->
-            if (!response.isSuccessful) throw IllegalStateException("le serveur a répondu ${response.code}")
+            if (!response.isSuccessful) throw IllegalStateException(tr("le serveur a répondu %s", response.code))
             val raw = BufferedInputStream(response.body.byteStream())
             raw.mark(2)
             val gzipped = raw.read() == 0x1f && raw.read() == 0x8b

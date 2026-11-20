@@ -1,5 +1,6 @@
 package app.veltrio.android
 
+import app.veltrio.shared.i18n.tr
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -59,7 +60,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private val tabs = listOf("Accueil", "Collection", "Direct", "Sources")
+private val tabs = listOf(tr("Accueil"), tr("Collection"), tr("Direct"), tr("Sources"))
 
 /** The four sections, as the macOS top bar: the wordmark with search and
  *  settings above, numbered text tabs below with an amber underline. */
@@ -72,13 +73,13 @@ private fun Tabs() {
             Modifier.fillMaxWidth().statusBarsPadding().padding(start = 22.dp, end = 10.dp, top = 6.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Veltrio", style = Type.displaySerif(24), color = p.textPrimary)
+            Text(tr("Veltrio"), style = Type.displaySerif(24), color = p.textPrimary)
             Spacer(Modifier.weight(1f))
             Box(Modifier.size(44.dp).clickable { Nav.search() }, contentAlignment = Alignment.Center) {
-                Icon(Icons.Outlined.Search, "Rechercher", tint = p.textPrimary)
+                Icon(Icons.Outlined.Search, tr("Rechercher"), tint = p.textPrimary)
             }
             Box(Modifier.size(44.dp).clickable { Nav.settings() }, contentAlignment = Alignment.Center) {
-                Icon(Icons.Outlined.Settings, "Réglages", tint = p.textPrimary)
+                Icon(Icons.Outlined.Settings, tr("Réglages"), tint = p.textPrimary)
             }
         }
         Box(Modifier.weight(1f)) {

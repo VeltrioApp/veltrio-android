@@ -1,5 +1,6 @@
 package app.veltrio.shared
 
+import app.veltrio.shared.i18n.tr
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonArray
@@ -36,14 +37,14 @@ object Http {
         val response = try {
             client.newCall(request).execute()
         } catch (e: IOException) {
-            throw ServiceException("$service injoignable : ${e.message}")
+            throw ServiceException(tr("%s injoignable : %s", service, e.message))
         }
         response.use {
             val text = it.body.string()
             val json = if (text.isEmpty()) JsonNull else runCatching { Storage.json.parseToJsonElement(text) }.getOrDefault(JsonNull)
             if (!it.isSuccessful) {
                 val detail = json.str("error") ?: json.str("detail") ?: json.str("message")
-                throw ServiceException("$service a répondu ${it.code}${detail?.let { d -> " : $d" } ?: ""}")
+                throw ServiceException(tr("%s a répondu %s%s", service, it.code, detail?.let { d -> " : $d" } ?: ""))
             }
             json
         }
@@ -53,10 +54,10 @@ object Http {
         val response = try {
             client.newCall(request).execute()
         } catch (e: IOException) {
-            throw ServiceException("$service injoignable : ${e.message}")
+            throw ServiceException(tr("%s injoignable : %s", service, e.message))
         }
         response.use {
-            if (!it.isSuccessful) throw ServiceException("$service a répondu ${it.code}")
+            if (!it.isSuccessful) throw ServiceException(tr("%s a répondu %s", service, it.code))
             it.body.string()
         }
     }

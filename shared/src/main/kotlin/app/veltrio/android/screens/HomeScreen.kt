@@ -1,5 +1,6 @@
 package app.veltrio.android.screens
 
+import app.veltrio.shared.i18n.tr
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -113,7 +114,7 @@ fun HomeScreen() {
         }
         if (continueWatching.isNotEmpty()) {
             item {
-                SectionHeader(1, "Reprendre", "${continueWatching.size} en cours", Modifier.padding(start = Spacing.lg, end = Spacing.lg, top = Spacing.lg, bottom = 12.dp))
+                SectionHeader(1, tr("Reprendre"), tr("%s en cours", continueWatching.size), Modifier.padding(start = Spacing.lg, end = Spacing.lg, top = Spacing.lg, bottom = 12.dp))
                 LazyRow(contentPadding = PaddingValues(horizontal = Spacing.lg), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     items(continueWatching, key = { it.key }) { ContinueCard(it) }
                 }
@@ -132,7 +133,7 @@ fun HomeScreen() {
                                 Modifier.clickable { Nav.openCatalog(CatalogRequest(row.addon, row.catalog)) }.padding(6.dp),
                                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp),
                             ) {
-                                Text("TOUT VOIR", style = Type.eyebrow(9, 0.18f), color = p.textPrimary)
+                                Text(tr("TOUT VOIR"), style = Type.eyebrow(9, 0.18f), color = p.textPrimary)
                                 Icon(Icons.AutoMirrored.Filled.ArrowForward, null, Modifier.width(12.dp), tint = p.textPrimary)
                             }
                         }
@@ -140,8 +141,8 @@ fun HomeScreen() {
                     Spacer(Modifier.height(12.dp))
                     val items = row.items
                     when {
-                        items == null -> Text("Chargement…", style = Type.caption(12), color = p.textTertiary, modifier = Modifier.padding(horizontal = Spacing.lg))
-                        items.isEmpty() -> Text(row.error ?: "Rien dans ce catalogue.", style = Type.caption(12), color = p.textTertiary, modifier = Modifier.padding(horizontal = Spacing.lg))
+                        items == null -> Text(tr("Chargement…"), style = Type.caption(12), color = p.textTertiary, modifier = Modifier.padding(horizontal = Spacing.lg))
+                        items.isEmpty() -> Text(row.error ?: tr("Rien dans ce catalogue."), style = Type.caption(12), color = p.textTertiary, modifier = Modifier.padding(horizontal = Spacing.lg))
                         else -> LazyRow(contentPadding = PaddingValues(horizontal = Spacing.lg), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             items(items, key = { it.id }) { PosterCard(it.title, it.posterUrl, it.subtitle) { openPoster(it) } }
                         }
@@ -162,8 +163,8 @@ private fun Hero(item: PosterItem) {
         Column(Modifier.align(Alignment.BottomStart).padding(horizontal = Spacing.lg), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Box(Modifier.width(28.dp).height(1.dp).background(p.accent))
-                Eyebrow("À l'affiche")
-                Eyebrow("· via ${item.addon.name}", p.textTertiary)
+                Eyebrow(tr("À l'affiche"))
+                Eyebrow(tr("· via %s", item.addon.name), p.textTertiary)
             }
             Text(item.title, style = Type.displaySerif(40), color = p.textPrimary, maxLines = 3, overflow = TextOverflow.Ellipsis)
             val facts = listOfNotNull(item.rating?.let { "★ $it" }, item.year, Core.typeLabel(item.type).uppercase(), item.genres.take(2).joinToString(" · ").ifEmpty { null })
@@ -172,8 +173,8 @@ private fun Hero(item: PosterItem) {
                 Text(item.description!!, style = Type.body(13), color = p.textSecondary, maxLines = 3, overflow = TextOverflow.Ellipsis)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 4.dp)) {
-                PrimaryButton(if (started) "Reprendre" else "Regarder", icon = Icons.Filled.PlayArrow) { openPoster(item) }
-                GhostButton("Détails", icon = Icons.Outlined.Info) { openPoster(item) }
+                PrimaryButton(if (started) tr("Reprendre") else tr("Regarder"), icon = Icons.Filled.PlayArrow) { openPoster(item) }
+                GhostButton(tr("Détails"), icon = Icons.Outlined.Info) { openPoster(item) }
             }
         }
     }
@@ -205,10 +206,10 @@ private fun EmptyHome() {
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     Column(Modifier.fillMaxSize().padding(Spacing.lg).padding(top = 60.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
-        Eyebrow("Bienvenue")
-        Text("Une pièce calme,\nrien à l'écran.", style = Type.displaySerif(34), color = p.textPrimary)
-        Text("Veltrio affiche ce que proposent les addons Stremio que vous installez. Commencez par Cinemeta, les catalogues officiels de films et de séries.", style = Type.body(14), color = p.textSecondary)
-        PrimaryButton("Installer Cinemeta", loading = busy) {
+        Eyebrow(tr("Bienvenue"))
+        Text(tr("Une pièce calme,\nrien à l'écran."), style = Type.displaySerif(34), color = p.textPrimary)
+        Text(tr("Veltrio affiche ce que proposent les addons Stremio que vous installez. Commencez par Cinemeta, les catalogues officiels de films et de séries."), style = Type.body(14), color = p.textSecondary)
+        PrimaryButton(tr("Installer Cinemeta"), loading = busy) {
             busy = true
             scope.launch {
                 error = Core.installAddon(Core.suggestedAddons[0].url)
@@ -218,8 +219,8 @@ private fun EmptyHome() {
         if (error != null) Text(error!!, style = Type.caption(12), color = p.danger)
         // A TV set up with a remote is tedious: offer a phone's settings.
         if (app.veltrio.android.LocalTv.current) {
-            Text("Veltrio est déjà configuré sur votre téléphone ?", style = Type.body(14), color = p.textSecondary, modifier = Modifier.padding(top = 12.dp))
-            GhostButton("Importer depuis un téléphone") { Nav.pair() }
+            Text(tr("Veltrio est déjà configuré sur votre téléphone ?"), style = Type.body(14), color = p.textSecondary, modifier = Modifier.padding(top = 12.dp))
+            GhostButton(tr("Importer depuis un téléphone")) { Nav.pair() }
         }
     }
 }

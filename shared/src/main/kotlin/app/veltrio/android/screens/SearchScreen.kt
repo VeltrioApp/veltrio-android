@@ -1,5 +1,6 @@
 package app.veltrio.android.screens
 
+import app.veltrio.shared.i18n.tr
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -91,17 +92,17 @@ fun SearchScreen() {
     Column(Modifier.fillMaxSize().background(p.background).statusBarsPadding()) {
         Row(Modifier.padding(Spacing.md), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(40.dp).clickable { Nav.back() }, contentAlignment = Alignment.Center) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, "Retour", tint = p.textPrimary)
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Retour"), tint = p.textPrimary)
             }
         }
         Column(Modifier.padding(horizontal = Spacing.lg), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Eyebrow("Recherche")
+            Eyebrow(tr("Recherche"))
             Row(
                 Modifier.fillMaxWidth().border(1.dp, if (query.isEmpty()) p.borderStrong else p.accent).padding(14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(Modifier.weight(1f)) {
-                    if (query.isEmpty()) Text("On regarde quoi ?", style = Type.displaySerif(26), color = p.textQuaternary)
+                    if (query.isEmpty()) Text(tr("On regarde quoi ?"), style = Type.displaySerif(26), color = p.textQuaternary)
                     BasicTextField(
                         query, { query = it }, Modifier.fillMaxWidth().focusRequester(focus),
                         textStyle = Type.displaySerif(26).copy(color = p.textPrimary), singleLine = true,
@@ -109,7 +110,7 @@ fun SearchScreen() {
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search), keyboardActions = KeyboardActions(),
                     )
                 }
-                if (query.isNotEmpty()) Icon(Icons.Filled.Close, "Effacer", Modifier.size(20.dp).clickable { query = "" }, tint = p.textTertiary)
+                if (query.isNotEmpty()) Icon(Icons.Filled.Close, tr("Effacer"), Modifier.size(20.dp).clickable { query = "" }, tint = p.textTertiary)
             }
         }
         val current = rows
@@ -117,15 +118,15 @@ fun SearchScreen() {
             when {
                 searching && current == null -> item { LoadingRow() }
                 current == null -> item {
-                    Text("Tapez au moins deux lettres : films et séries de tous vos addons.", style = Type.body(13), color = p.textTertiary, modifier = Modifier.padding(Spacing.lg))
+                    Text(tr("Tapez au moins deux lettres : films et séries de tous vos addons."), style = Type.body(13), color = p.textTertiary, modifier = Modifier.padding(Spacing.lg))
                 }
                 current.isEmpty() && channels.isEmpty() -> item {
-                    Text("Rien trouvé pour « ${query.trim()} ».", style = Type.body(14), color = p.textSecondary, modifier = Modifier.padding(Spacing.lg))
+                    Text(tr("Rien trouvé pour « %s ».", query.trim()), style = Type.body(14), color = p.textSecondary, modifier = Modifier.padding(Spacing.lg))
                 }
                 else -> {
                     if (channels.isNotEmpty()) item {
                         Column(Modifier.padding(bottom = Spacing.lg)) {
-                            SectionHeader(null, "Direct", "IPTV · ${channels.size}", Modifier.padding(horizontal = Spacing.lg))
+                            SectionHeader(null, tr("Direct"), tr("IPTV · %s", channels.size), Modifier.padding(horizontal = Spacing.lg))
                             Spacer(Modifier.height(12.dp))
                             LazyRow(contentPadding = PaddingValues(horizontal = Spacing.lg), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 items(channels, key = { (pl, c) -> pl.id + c.id }) { (pl, c) ->

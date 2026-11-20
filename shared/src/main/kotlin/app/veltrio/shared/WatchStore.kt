@@ -1,5 +1,6 @@
 package app.veltrio.shared
 
+import app.veltrio.shared.i18n.tr
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.Serializable
@@ -44,15 +45,15 @@ data class WatchEntry(
     val resumeLabel: String
         get() {
             val (pos, dur) = current
-            if (dur <= 0) return "PAS COMMENCÉ"
+            if (dur <= 0) return tr("PAS COMMENCÉ")
             val mins = ((dur - pos).coerceAtLeast(0.0) / 60).toInt()
-            return if (mins <= 1) "BIENTÔT FINI" else "$mins MIN RESTANTES"
+            return if (mins <= 1) tr("BIENTÔT FINI") else tr("%s MIN RESTANTES", mins)
         }
 
     val statusLabel get() = when {
-        watched -> "VU"
-        isStarted -> "EN COURS"
-        inLibrary -> "ENREGISTRÉ"
+        watched -> tr("VU")
+        isStarted -> tr("EN COURS")
+        inLibrary -> tr("ENREGISTRÉ")
         else -> ""
     }
 }

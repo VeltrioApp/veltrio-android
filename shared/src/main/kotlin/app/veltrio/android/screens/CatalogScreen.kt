@@ -1,5 +1,6 @@
 package app.veltrio.android.screens
 
+import app.veltrio.shared.i18n.tr
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -63,7 +64,7 @@ fun CatalogScreen(request: CatalogRequest) {
     Column(Modifier.fillMaxSize().background(p.background).statusBarsPadding()) {
         Row(Modifier.padding(Spacing.md), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(40.dp).clickable { Nav.back() }, contentAlignment = Alignment.Center) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, "Retour", tint = p.textPrimary)
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Retour"), tint = p.textPrimary)
             }
         }
         LazyVerticalGrid(

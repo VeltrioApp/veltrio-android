@@ -1,5 +1,6 @@
 package app.veltrio.shared
 
+import app.veltrio.shared.i18n.tr
 import kotlinx.serialization.Serializable
 import uniffi.veltrio.Manifest
 import uniffi.veltrio.Meta
@@ -121,7 +122,7 @@ data class TitleDetails(
             episodes = m.videos.map { v ->
                 EpisodeItem(
                     id = v.id,
-                    title = v.title.ifBlank { "Épisode ${v.episode ?: ""}".trim() },
+                    title = v.title.ifBlank { tr("Épisode %s", v.episode ?: "").trim() },
                     season = v.season, episode = v.episode, thumbnail = v.thumbnail,
                     overview = v.overview, released = v.released,
                 )
@@ -165,7 +166,7 @@ class StreamItem(
             is StreamSource.Torrent -> cacheLabel ?: "TORRENT"
             is StreamSource.Url -> "DIRECT"
             is StreamSource.YouTube -> "YOUTUBE"
-            else -> "EXTERNE"
+            else -> tr("EXTERNE")
         }
 
     val quality: String
@@ -189,8 +190,8 @@ class StreamItem(
     companion object {
         /** A copy downloaded for offline playback: played from disk. */
         fun local(d: DownloadItem) = StreamItem(
-            CoreStream(d.title, listOfNotNull(d.subtitle, "${size(d.bytesDownloaded)} sur cet appareil").joinToString(" · "), null, StreamSource.Url(d.localPath), emptyList(), null),
-            "Hors ligne", origin = "HORS LIGNE", localPath = d.localPath,
+            CoreStream(d.title, listOfNotNull(d.subtitle, tr("%s sur cet appareil", size(d.bytesDownloaded))).joinToString(" · "), null, StreamSource.Url(d.localPath), emptyList(), null),
+            tr("Hors ligne"), origin = tr("HORS LIGNE"), localPath = d.localPath,
         )
 
         private fun size(bytes: Long) = if (bytes >= 1L shl 30) "%.1f Go".format(bytes / (1L shl 30).toDouble()) else "${maxOf(1, bytes shr 20)} Mo"

@@ -1,5 +1,6 @@
 package app.veltrio.shared
 
+import app.veltrio.shared.i18n.tr
 import android.content.Context
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
@@ -91,7 +92,7 @@ object Pairing {
     }
 
     private fun publicKey(x963: ByteArray, like: ECPublicKey): ECPublicKey {
-        require(x963.size == 65 && x963[0] == 4.toByte()) { "clé publique invalide" }
+        require(x963.size == 65 && x963[0] == 4.toByte()) { tr("clé publique invalide") }
         val point = ECPoint(BigInteger(1, x963.copyOfRange(1, 33)), BigInteger(1, x963.copyOfRange(33, 65)))
         return KeyFactory.getInstance("EC").generatePublic(ECPublicKeySpec(point, like.params)) as ECPublicKey
     }
@@ -158,13 +159,13 @@ object Pairing {
         return listOfNotNull(
             count(addons, "addon", "addons"),
             count(playlists, "playlist", "playlists"),
-            count(accounts, "compte ou service", "comptes et services"),
-            count(titles, "titre de la Collection", "titres de la Collection"),
-        ).joinToString(", ").ifEmpty { "rien de nouveau, tout était déjà là" }
+            count(accounts, tr("compte ou service"), tr("comptes et services")),
+            count(titles, tr("titre de la Collection"), tr("titres de la Collection")),
+        ).joinToString(", ").ifEmpty { tr("rien de nouveau, tout était déjà là") }
     }
 
     /** The name the user gave the device ("Salon"), else its model. */
-    fun deviceName(): String = deviceLabel ?: Build.MODEL?.takeIf { it.isNotBlank() } ?: "Android"
+    fun deviceName(): String = deviceLabel ?: Build.MODEL?.takeIf { it.isNotBlank() } ?: tr("Android")
 
     internal var deviceLabel: String? = null
 
@@ -199,7 +200,7 @@ object Pairing {
         private fun newCode() = "%06d".format(random.nextInt(1_000_000))
 
         fun start() {
-            val name = "Veltrio · ${deviceName()}"
+            val name = tr("Veltrio · %s", deviceName())
             // A fixed port when free, so it can be typed (and forwarded).
             val socket = runCatching { ServerSocket(PORT) }.getOrElse { ServerSocket(0) }
             _state.value = ReceiverState(code = newCode(), name = name, addresses = localAddresses().map { "$it:${socket.localPort}" }, running = true)
@@ -218,7 +219,7 @@ object Pairing {
             val listener = object : NsdManager.RegistrationListener {
                 override fun onServiceRegistered(info: NsdServiceInfo) {}
                 override fun onRegistrationFailed(info: NsdServiceInfo, errorCode: Int) {
-                    _state.value = _state.value.copy(error = "Impossible de s'annoncer sur le réseau ($errorCode).")
+                    _state.value = _state.value.copy(error = tr("Impossible de s'annoncer sur le réseau (%s).", errorCode))
                 }
                 override fun onServiceUnregistered(info: NsdServiceInfo) {}
                 override fun onUnregistrationFailed(info: NsdServiceInfo, errorCode: Int) {}
@@ -281,14 +282,14 @@ object Pairing {
                 if (++failures >= 5) {
                     failures = 0
                     keys = newKeyPair()
-                    _state.value = _state.value.copy(code = newCode(), error = "Trop d'essais : nouveau code.")
-                } else _state.value = _state.value.copy(error = "Code incorrect.")
+                    _state.value = _state.value.copy(code = newCode(), error = tr("Trop d'essais : nouveau code."))
+                } else _state.value = _state.value.copy(error = tr("Code incorrect."))
                 return respond(out, 403, """{"error":"Code incorrect."}""")
             }
             _state.value = _state.value.copy(busy = true, error = null)
             val bundle = Storage.json.decodeFromString(SettingsBundle.serializer(), plain.decodeToString())
             val summary = withContext(Dispatchers.IO) { apply(bundle) }
-            _state.value = _state.value.copy(busy = false, result = "Reçu de ${bundle.from} : $summary.")
+            _state.value = _state.value.copy(busy = false, result = tr("Reçu de %s : %s.", bundle.from, summary))
             respond(out, 200, buildJsonObject { put("result", summary) }.toString())
         }
 
@@ -389,7 +390,7 @@ object Pairing {
         val base = "http://${if (':' in target.host) "[${target.host}]" else target.host}:${target.port}/veltrio-pair"
         val hello = Http.json(Request.Builder().url(base).build(), target.name)
         val own = newKeyPair()
-        val theirs = publicKey(unb64(hello.str("publicKey") ?: throw ServiceException("Réponse inattendue de la TV.")), own.public as ECPublicKey)
+        val theirs = publicKey(unb64(hello.str("publicKey") ?: throw ServiceException(tr("Réponse inattendue de la TV."))), own.public as ECPublicKey)
         val nonce = ByteArray(12).also(random::nextBytes)
         val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.ENCRYPT_MODE, key(own, theirs, code.trim()), GCMParameterSpec(128, nonce)) }
         val plain = Storage.json.encodeToString(SettingsBundle.serializer(), collect()).encodeToByteArray()
@@ -401,8 +402,8 @@ object Pairing {
         val answer = try {
             Http.json(Request.Builder().url(base).post(body).build(), target.name)
         } catch (e: ServiceException) {
-            throw ServiceException(if ("403" in (e.message ?: "")) "Code incorrect : vérifiez celui affiché sur la TV." else e.message ?: "Échec de l'envoi.")
+            throw ServiceException(if ("403" in (e.message ?: "")) tr("Code incorrect : vérifiez celui affiché sur la TV.") else e.message ?: tr("Échec de l'envoi."))
         }
-        answer.str("result") ?: "Envoyé."
+        answer.str("result") ?: tr("Envoyé.")
     }
 }

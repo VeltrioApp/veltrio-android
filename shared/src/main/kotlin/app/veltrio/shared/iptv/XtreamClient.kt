@@ -1,5 +1,6 @@
 package app.veltrio.shared.iptv
 
+import app.veltrio.shared.i18n.tr
 import app.veltrio.shared.Http
 import app.veltrio.shared.Storage
 import app.veltrio.shared.items
@@ -29,7 +30,7 @@ import java.util.concurrent.ConcurrentHashMap
  *  per-row tolerant decoding (panels mix strings and numbers), auth
  *  failures told apart from empty lists. */
 object XtreamClient {
-    class AuthException : Exception("Identifiants Xtream refusés : vérifiez l'utilisateur et le mot de passe.")
+    class AuthException : Exception(tr("Identifiants Xtream refusés : vérifiez l'utilisateur et le mot de passe."))
 
     // -------------------- account --------------------
 
@@ -50,7 +51,7 @@ object XtreamClient {
         val cats = categories.await()
         rows.mapNotNull { s ->
             val id = text(s, "stream_id")?.ifEmpty { null } ?: return@mapNotNull null
-            val name = text(s, "name")?.ifEmpty { null } ?: "Chaîne $id"
+            val name = text(s, "name")?.ifEmpty { null } ?: tr("Chaîne %s", id)
             ChannelItem(
                 id = "xtream-$id", name = name,
                 streamUrl = "${account.baseUrl}/live/${seg(account.username)}/${seg(account.password)}/$id.$ext",
@@ -82,7 +83,7 @@ object XtreamClient {
         return ChannelItem(
             id = "xvod-$id", name = text(s, "name")?.ifEmpty { null } ?: "Film $id",
             streamUrl = "${account.baseUrl}/movie/${seg(account.username)}/${seg(account.password)}/$id.$ext",
-            logo = nonempty(text(s, "stream_icon")), group = categories[text(s, "category_id") ?: ""] ?: "Films",
+            logo = nonempty(text(s, "stream_icon")), group = categories[text(s, "category_id") ?: ""] ?: tr("Films"),
             kind = ChannelKind.Movie, xtreamId = id, rating = rating(text(s, "rating")), year = nonempty(text(s, "year")),
         )
     }
@@ -90,8 +91,8 @@ object XtreamClient {
     private fun series(s: JsonElement, categories: Map<String, String>): ChannelItem? {
         val id = text(s, "series_id")?.ifEmpty { null } ?: return null
         return ChannelItem(
-            id = "xseries-$id", name = text(s, "name")?.ifEmpty { null } ?: "Série $id",
-            logo = nonempty(text(s, "cover")), group = categories[text(s, "category_id") ?: ""] ?: "Séries",
+            id = "xseries-$id", name = text(s, "name")?.ifEmpty { null } ?: tr("Série %s", id),
+            logo = nonempty(text(s, "cover")), group = categories[text(s, "category_id") ?: ""] ?: tr("Séries"),
             kind = ChannelKind.Series, xtreamId = id, rating = rating(text(s, "rating")),
             year = nonempty(text(s, "releaseDate"))?.take(4),
         )
@@ -146,7 +147,7 @@ object XtreamClient {
         categoryCache[key(account, action)] ?: categories(get(account, action)).also { categoryCache[key(account, action)] = it }
 
     suspend fun seriesInfo(account: XtreamAccount, seriesId: String): XtreamSeries {
-        val json = get(account, "get_series_info", "&series_id=${enc(seriesId)}") as? JsonObject ?: return XtreamSeries("Série $seriesId")
+        val json = get(account, "get_series_info", "&series_id=${enc(seriesId)}") as? JsonObject ?: return XtreamSeries(tr("Série %s", seriesId))
         val info = json["info"] as? JsonObject
         val episodes = mutableListOf<XtreamEpisode>()
         // An object keyed by season, or (some panels) an array of arrays.
@@ -164,7 +165,7 @@ object XtreamClient {
                 val ext = nonempty(text(e, "container_extension")) ?: "mp4"
                 episodes += XtreamEpisode(
                     id = id, season = season, number = number,
-                    title = nonempty(text(e, "title")) ?: "Épisode $number",
+                    title = nonempty(text(e, "title")) ?: tr("Épisode %s", number),
                     plot = epInfo?.let { nonempty(text(it, "plot")) }, image = epInfo?.let { nonempty(text(it, "movie_image")) },
                     duration = epInfo?.let { nonempty(text(it, "duration")) },
                     streamUrl = "${account.baseUrl}/series/${seg(account.username)}/${seg(account.password)}/$id.$ext",
@@ -177,7 +178,7 @@ object XtreamClient {
             else -> null
         }
         return XtreamSeries(
-            name = info?.let { nonempty(text(it, "name")) } ?: "Série $seriesId",
+            name = info?.let { nonempty(text(it, "name")) } ?: tr("Série %s", seriesId),
             plot = info?.let { nonempty(text(it, "plot")) }, cover = info?.let { nonempty(text(it, "cover")) },
             backdrop = backdrop, genre = info?.let { nonempty(text(it, "genre")) },
             released = info?.let { nonempty(text(it, "releaseDate")) }, rating = info?.let { rating(text(it, "rating")) },
@@ -240,13 +241,13 @@ object XtreamClient {
     private operator fun JsonElement?.get(name: String): JsonElement? = (this as? JsonObject)?.get(name)
 
     private suspend fun get(account: XtreamAccount, action: String?, extra: String = ""): JsonElement {
-        if (account.baseUrl.isEmpty()) throw IllegalStateException("Adresse du serveur Xtream invalide.")
+        if (account.baseUrl.isEmpty()) throw IllegalStateException(tr("Adresse du serveur Xtream invalide."))
         val url = "${account.baseUrl}/player_api.php?username=${enc(account.username)}&password=${enc(account.password)}" +
             (action?.let { "&action=$it" } ?: "") + extra
         val raw = withContext(Dispatchers.IO) {
             Http.client.newBuilder().readTimeout(30, java.util.concurrent.TimeUnit.SECONDS).build()
                 .newCall(Request.Builder().url(url).build()).execute().use { r ->
-                    if (!r.isSuccessful) throw IllegalStateException("Le serveur Xtream a répondu ${r.code}.")
+                    if (!r.isSuccessful) throw IllegalStateException(tr("Le serveur Xtream a répondu %s.", r.code))
                     r.body.string()
                 }
         }
@@ -255,7 +256,7 @@ object XtreamClient {
         val json = try {
             Storage.json.parseToJsonElement(text)
         } catch (_: Exception) {
-            throw IllegalStateException("Réponse Xtream illisible.")
+            throw IllegalStateException(tr("Réponse Xtream illisible."))
         }
         // An object where a list was expected: an error envelope; bad
         // credentials say so with user_info.auth = 0.

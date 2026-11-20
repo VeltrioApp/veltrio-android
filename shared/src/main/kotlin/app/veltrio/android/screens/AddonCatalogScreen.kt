@@ -1,5 +1,6 @@
 package app.veltrio.android.screens
 
+import app.veltrio.shared.i18n.tr
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -71,7 +72,7 @@ fun AddonCatalogScreen() {
                 AddonCatalogService.community
             } else AddonCatalogService.official()
         } catch (e: Exception) {
-            error = "Impossible de charger le catalogue. ${e.message}"
+            error = tr("Impossible de charger le catalogue. %s", e.message)
             items = emptyList()
         }
     }
@@ -80,8 +81,8 @@ fun AddonCatalogScreen() {
         busy.value = addon.id
         scope.launch {
             val url = runCatching { AddonCatalogService.resolveTransport(addon) }.getOrNull()
-            val result = if (url == null) "Pas de manifest trouvé pour cet addon." else Core.installAddon(url)
-            messages = messages + (addon.id to (result ?: "Installé"))
+            val result = if (url == null) tr("Pas de manifest trouvé pour cet addon.") else Core.installAddon(url)
+            messages = messages + (addon.id to (result ?: tr("Installé")))
             busy.value = null
         }
     }
@@ -92,14 +93,14 @@ fun AddonCatalogScreen() {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Box(Modifier.padding(Spacing.md).size(40.dp).clickable { Nav.back() }, contentAlignment = Alignment.Center) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "Retour", tint = p.textPrimary)
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Retour"), tint = p.textPrimary)
                 }
-                PageHeader("Sources", "Catalogue d'addons", "Les addons officiels de Stremio, et ceux de la communauté.")
+                PageHeader(tr("Sources"), tr("Catalogue d'addons"), tr("Les addons officiels de Stremio, et ceux de la communauté."))
                 Row(Modifier.padding(horizontal = Spacing.lg), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Chip("Officiels", !community) { community = false }
-                    Chip("Communauté", community) { community = true }
+                    Chip(tr("Officiels"), !community) { community = false }
+                    Chip(tr("Communauté"), community) { community = true }
                 }
-                TextInput(filter, { filter = it }, "Rechercher un addon", Modifier.padding(horizontal = Spacing.lg))
+                TextInput(filter, { filter = it }, tr("Rechercher un addon"), Modifier.padding(horizontal = Spacing.lg))
             }
         }
         when {
@@ -118,17 +119,17 @@ fun AddonCatalogScreen() {
                         Text(addon.name, style = Type.title(16), color = p.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(listOf(addon.capabilities, addon.typesLabel.uppercase()).filter { it.isNotEmpty() }.joinToString(" · "), style = Type.eyebrow(9, 0.14f), color = p.textTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         addon.description?.let { Text(it, style = Type.caption(12), color = p.textSecondary, maxLines = 3, overflow = TextOverflow.Ellipsis) }
-                        messages[addon.id]?.let { Text(it, style = Type.mono(11), color = if (it == "Installé") p.success else p.danger) }
+                        messages[addon.id]?.let { Text(it, style = Type.mono(11), color = if (it == tr("Installé")) p.success else p.danger) }
                     }
-                    if (installed) Text("INSTALLÉ", style = Type.eyebrow(9, 0.2f), color = p.success, modifier = Modifier.align(Alignment.CenterVertically))
-                    else GhostButton(if (busy.value == addon.id) "…" else "Ajouter", enabled = busy.value == null) { install(addon) }
+                    if (installed) Text(tr("INSTALLÉ"), style = Type.eyebrow(9, 0.2f), color = p.success, modifier = Modifier.align(Alignment.CenterVertically))
+                    else GhostButton(if (busy.value == addon.id) "…" else tr("Ajouter"), enabled = busy.value == null) { install(addon) }
                 }
                 Box(Modifier.padding(horizontal = Spacing.lg).fillMaxWidth().height(1.dp).background(p.border))
             }
         }
         if (community && items != null && AddonCatalogService.communityPagesLoaded < AddonCatalogService.COMMUNITY_PAGE_COUNT) item {
             Box(Modifier.fillMaxWidth().padding(Spacing.lg), contentAlignment = Alignment.Center) {
-                GhostButton(if (loadingMore) "Chargement…" else "Charger plus", enabled = !loadingMore) {
+                GhostButton(if (loadingMore) tr("Chargement…") else tr("Charger plus"), enabled = !loadingMore) {
                     loadingMore = true
                     scope.launch {
                         runCatching { AddonCatalogService.loadMoreCommunity() }

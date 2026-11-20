@@ -1,5 +1,6 @@
 package app.veltrio.shared
 
+import app.veltrio.shared.i18n.tr
 import android.content.Context
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
@@ -139,12 +140,12 @@ object ChromecastService {
                     CastSession.Outcome.Playing -> _state.value.copy(state = CastState.Casting)
                     CastSession.Outcome.Closed -> {
                         session = null
-                        if (_state.value.state == CastState.Connecting) State(CastState.Failed, device.name, "Le Chromecast a fermé la connexion.")
+                        if (_state.value.state == CastState.Connecting) State(CastState.Failed, device.name, tr("Le Chromecast a fermé la connexion."))
                         else State()
                     }
                     CastSession.Outcome.Failed -> {
                         session = null
-                        State(CastState.Failed, device.name, s.failure ?: "Le Chromecast n'a pas pu lire ce flux.")
+                        State(CastState.Failed, device.name, s.failure ?: tr("Le Chromecast n'a pas pu lire ce flux."))
                     }
                 }
             }
@@ -212,7 +213,7 @@ internal class CastSession(private val device: ChromecastService.Device, private
             if (!isActive) return@launch // stopped by the user
             if (playing) onEvent(Outcome.Closed) // the device went away or another sender took over
             else {
-                failure = "Connexion au Chromecast impossible : ${e.message}"
+                failure = tr("Connexion au Chromecast impossible : %s", e.message)
                 onEvent(Outcome.Failed)
             }
         } finally {
@@ -254,7 +255,7 @@ internal class CastSession(private val device: ChromecastService.Device, private
                 }
             }
             "LOAD_FAILED", "LOAD_CANCELLED", "INVALID_REQUEST", "LAUNCH_ERROR" -> {
-                failure = "Le Chromecast n'a pas pu lire ce flux."
+                failure = tr("Le Chromecast n'a pas pu lire ce flux.")
                 onEvent(Outcome.Failed)
                 return false
             }

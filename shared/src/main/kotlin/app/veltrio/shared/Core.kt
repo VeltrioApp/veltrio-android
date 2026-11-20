@@ -1,5 +1,6 @@
 package app.veltrio.shared
 
+import app.veltrio.shared.i18n.tr
 import android.content.Context
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
@@ -31,9 +32,9 @@ object Core {
     data class Suggestion(val name: String, val url: String, val blurb: String)
 
     val suggestedAddons = listOf(
-        Suggestion("Cinemeta", "https://v3-cinemeta.strem.io/manifest.json", "Les catalogues officiels de films et de séries (via TMDB)."),
-        Suggestion("OpenSubtitles v3", "https://opensubtitles-v3.strem.io/manifest.json", "Des sous-titres dans plus de 50 langues."),
-        Suggestion("WatchHub", "https://watchhub.strem.io/manifest.json", "Des liens de streaming légaux : Apple TV, Prime, etc."),
+        Suggestion("Cinemeta", "https://v3-cinemeta.strem.io/manifest.json", tr("Les catalogues officiels de films et de séries (via TMDB).")),
+        Suggestion("OpenSubtitles v3", "https://opensubtitles-v3.strem.io/manifest.json", tr("Des sous-titres dans plus de 50 langues.")),
+        Suggestion("WatchHub", "https://watchhub.strem.io/manifest.json", tr("Des liens de streaming légaux : Apple TV, Prime, etc.")),
     )
 
     /** Where torrents played without debrid are kept: the core writes
@@ -80,10 +81,10 @@ object Core {
         // stremio:// links are https:// manifests in disguise.
         if (url.startsWith("stremio://", ignoreCase = true)) url = "https://" + url.drop("stremio://".length)
         val scheme = runCatching { URI(url).scheme }.getOrNull()
-        if (scheme != "http" && scheme != "https") return "L'URL d'un addon doit commencer par http:// ou https://."
+        if (scheme != "http" && scheme != "https") return tr("L'URL d'un addon doit commencer par http:// ou https://.")
         return try {
             val addon = AddonInfo.from(client.fetchManifest(url))
-            if (_addons.value.any { it.id == addon.id }) return "L'addon ${addon.name} est déjà installé."
+            if (_addons.value.any { it.id == addon.id }) return tr("L'addon %s est déjà installé.", addon.name)
             saveAddons(_addons.value + addon)
             null
         } catch (e: Exception) {
@@ -163,7 +164,7 @@ object Core {
                 last = e
             }
         }
-        throw IllegalStateException(last?.let { humanize(it) } ?: "Aucun addon n'a pu fournir la fiche.")
+        throw IllegalStateException(last?.let { humanize(it) } ?: tr("Aucun addon n'a pu fournir la fiche."))
     }
 
     // -------------------- streams --------------------
@@ -224,13 +225,13 @@ object Core {
     suspend fun resolve(item: StreamItem, season: Int? = null, episode: Int? = null): String {
         item.localPath?.let { return it }
         return when (val source = item.stream.source) {
-            is StreamSource.Url -> if (isPlayable(source.url)) source.url else error("Ce flux ne se lit pas dans l'app.")
+            is StreamSource.Url -> if (isPlayable(source.url)) source.url else error(tr("Ce flux ne se lit pas dans l'app."))
             is StreamSource.Torrent -> {
                 if (DebridService.anyConnected) DebridService.resolve(source.infoHash, season, episode)?.let { return it }
                 streaming += source.infoHash.lowercase()
                 torrents.startStream(source.infoHash, source.sources, source.fileIdx)
             }
-            else -> error("Ce flux ne se lit pas dans l'app.")
+            else -> error(tr("Ce flux ne se lit pas dans l'app."))
         }
     }
 
@@ -290,21 +291,21 @@ object Core {
     // -------------------- helpers --------------------
 
     fun typeLabel(type: String, plural: Boolean = false) = when (type) {
-        "movie" -> if (plural) "Films" else "Film"
-        "series" -> if (plural) "Séries" else "Série"
-        "channel" -> if (plural) "Chaînes" else "Chaîne"
+        "movie" -> if (plural) tr("Films") else tr("Film")
+        "series" -> if (plural) tr("Séries") else tr("Série")
+        "channel" -> if (plural) tr("Chaînes") else tr("Chaîne")
         "tv" -> "TV"
         else -> type
     }
 
     fun humanize(e: Throwable): String = when (e) {
-        is VeltrioException.Network -> "Réseau : ${e.message}"
-        is VeltrioException.Parse -> "Réponse illisible : ${e.message}"
-        is VeltrioException.InvalidUrl -> "URL invalide : ${e.message}"
-        is VeltrioException.NotFound -> "Introuvable : ${e.message}"
-        is VeltrioException.Unsupported -> "Non pris en charge : ${e.message}"
-        is VeltrioException.Internal -> "Erreur interne : ${e.message}"
-        is kotlinx.coroutines.TimeoutCancellationException -> "Délai dépassé"
+        is VeltrioException.Network -> tr("Réseau : %s", e.message)
+        is VeltrioException.Parse -> tr("Réponse illisible : %s", e.message)
+        is VeltrioException.InvalidUrl -> tr("URL invalide : %s", e.message)
+        is VeltrioException.NotFound -> tr("Introuvable : %s", e.message)
+        is VeltrioException.Unsupported -> tr("Non pris en charge : %s", e.message)
+        is VeltrioException.Internal -> tr("Erreur interne : %s", e.message)
+        is kotlinx.coroutines.TimeoutCancellationException -> tr("Délai dépassé")
         else -> e.message ?: e.toString()
     }
 }

@@ -1,5 +1,6 @@
 package app.veltrio.shared.iptv
 
+import app.veltrio.shared.i18n.tr
 import android.content.Context
 import android.net.Uri
 import app.veltrio.shared.SecretStore
@@ -54,7 +55,7 @@ object IptvStore {
     fun addM3u(name: String, rawUrl: String): String? {
         val url = rawUrl.trim()
         val uri = runCatching { URI(url) }.getOrNull()
-        if (uri?.scheme !in setOf("http", "https") || uri?.host.isNullOrEmpty()) return "L'URL de la playlist doit commencer par http:// ou https://."
+        if (uri?.scheme !in setOf("http", "https") || uri?.host.isNullOrEmpty()) return tr("L'URL de la playlist doit commencer par http:// ou https://.")
         add(PlaylistRef(name = name.trim().ifEmpty { uri!!.host }, url = url))
         return null
     }
@@ -69,7 +70,7 @@ object IptvStore {
         add(playlist.copy(url = "file://${target.absolutePath}"))
         null
     } catch (e: Exception) {
-        "Fichier illisible : ${e.message}"
+        tr("Fichier illisible : %s", e.message)
     }
 
     private fun localFile(p: PlaylistRef) = File(Storage.folder, "playlists/${p.id}.m3u")
@@ -78,15 +79,15 @@ object IptvStore {
      *  error message, or null. */
     suspend fun addXtream(name: String, host: String, username: String, password: String, output: String): String? {
         val account = XtreamAccount(host = host.trim(), username = username.trim(), password = password, output = output)
-        if (account.baseUrl.isEmpty() || account.username.isEmpty() || password.isEmpty()) return "Renseignez le serveur, l'utilisateur et le mot de passe."
+        if (account.baseUrl.isEmpty() || account.username.isEmpty() || password.isEmpty()) return tr("Renseignez le serveur, l'utilisateur et le mot de passe.")
         try {
             XtreamClient.verify(account)
         } catch (e: java.io.IOException) {
-            return "Serveur injoignable : ${e.message}"
+            return tr("Serveur injoignable : %s", e.message)
         } catch (e: Exception) {
             return e.message
         }
-        val playlist = PlaylistRef(name = name.trim().ifEmpty { runCatching { URI(account.baseUrl).host }.getOrNull() ?: "Xtream" }, xtream = account)
+        val playlist = PlaylistRef(name = name.trim().ifEmpty { runCatching { URI(account.baseUrl).host }.getOrNull() ?: tr("Xtream") }, xtream = account)
         SecretStore.set(secretName(playlist.id), password)
         add(playlist)
         return null

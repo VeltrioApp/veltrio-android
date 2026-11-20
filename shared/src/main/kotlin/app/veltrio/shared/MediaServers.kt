@@ -1,5 +1,6 @@
 package app.veltrio.shared
 
+import app.veltrio.shared.i18n.tr
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -51,7 +52,7 @@ data class MediaLibraryItem(
      *  build the URL from the id. */
     val streamUrl: String? = null,
 ) {
-    val subtitle get() = year?.toString() ?: if (type == "series") "SÉRIE" else "FILM"
+    val subtitle get() = year?.toString() ?: if (type == "series") tr("SÉRIE") else tr("FILM")
 }
 
 /** An episode of a series the server couldn't tie to an IMDB id. */
@@ -198,7 +199,7 @@ object MediaServers {
 /** Jellyfin and Emby: same ancestor, same API; they differ in the auth
  *  headers and the stream URL's token parameter. */
 class MediaBrowserServer(kind: MediaServerKind) : MediaServer(kind) {
-    override val name = if (kind == MediaServerKind.Jellyfin) "Jellyfin" else "Emby"
+    override val name = if (kind == MediaServerKind.Jellyfin) tr("Jellyfin") else tr("Emby")
     override val color = if (kind == MediaServerKind.Jellyfin) 0xFF00A4DC else 0xFF52B54B
     override val signedIn get() = saved.userId != null
     override val host get() = saved.url?.let { runCatching { URI(it).host }.getOrNull() }
@@ -229,7 +230,7 @@ class MediaBrowserServer(kind: MediaServerKind) : MediaServer(kind) {
 
     /** The error to show, or null once signed in. */
     private suspend fun signIn(url: String, user: String, password: String): String? = withContext(Dispatchers.IO) {
-        if (runCatching { URI(url).host }.getOrNull().isNullOrEmpty()) return@withContext "Adresse de serveur invalide."
+        if (runCatching { URI(url).host }.getOrNull().isNullOrEmpty()) return@withContext tr("Adresse de serveur invalide.")
         // Check a server of this kind answers before sending credentials, so
         // a wrong address or port isn't reported as a wrong password.
         try {
@@ -237,27 +238,27 @@ class MediaBrowserServer(kind: MediaServerKind) : MediaServer(kind) {
                 if (r.isSuccessful) runCatching { Storage.json.parseToJsonElement(r.body.string()) }.getOrNull() else null
             }
             if (info.str("Version") == null) return@withContext if (kind == MediaServerKind.Jellyfin)
-                "Aucun serveur Jellyfin ne répond à $url. Vérifiez l'adresse et le port (8096 par défaut), et ajoutez le chemin de base si votre serveur en a un, par exemple /jellyfin."
-            else "Aucun serveur Emby ne répond à $url. Vérifiez l'adresse et le port (8096 par défaut)."
+                tr("Aucun serveur Jellyfin ne répond à %s. Vérifiez l'adresse et le port (8096 par défaut), et ajoutez le chemin de base si votre serveur en a un, par exemple /jellyfin.", url)
+            else tr("Aucun serveur Emby ne répond à %s. Vérifiez l'adresse et le port (8096 par défaut).", url)
             val product = info.str("ProductName") ?: ""
-            if (kind == MediaServerKind.Jellyfin && product.contains("emby", true)) return@withContext "C'est un serveur Emby : connectez-le avec la carte Emby."
-            if (kind == MediaServerKind.Emby && product.contains("jellyfin", true)) return@withContext "C'est un serveur Jellyfin : connectez-le avec la carte Jellyfin."
+            if (kind == MediaServerKind.Jellyfin && product.contains("emby", true)) return@withContext tr("C'est un serveur Emby : connectez-le avec la carte Emby.")
+            if (kind == MediaServerKind.Emby && product.contains("jellyfin", true)) return@withContext tr("C'est un serveur Jellyfin : connectez-le avec la carte Jellyfin.")
         } catch (e: Exception) {
-            return@withContext "Impossible de joindre $url : ${e.message}"
+            return@withContext tr("Impossible de joindre %s : %s", url, e.message)
         }
         val body = buildJsonObject { put("Username", user); put("Pw", password) }.toString().toRequestBody("application/json".toMediaType())
         try {
             http.newCall(Request.Builder().url("$url/Users/AuthenticateByName").post(body).authorize(null).build()).execute().use { r ->
                 val text = r.body.string()
                 if (!r.isSuccessful) return@withContext when (r.code) {
-                    401 -> "Nom d'utilisateur ou mot de passe incorrect."
-                    403 -> "Ce compte n'a pas le droit de se connecter (désactivé, ou accès distant coupé pour lui)."
-                    else -> "$name a refusé la connexion (HTTP ${r.code})${if (text.isNotEmpty()) " : " + text.take(200).trim() else ""}"
+                    401 -> tr("Nom d'utilisateur ou mot de passe incorrect.")
+                    403 -> tr("Ce compte n'a pas le droit de se connecter (désactivé, ou accès distant coupé pour lui).")
+                    else -> tr("%s a refusé la connexion (HTTP %s)%s", name, r.code, if (text.isNotEmpty()) " : " + text.take(200).trim() else "")
                 }
                 val json = Storage.json.parseToJsonElement(text)
                 val accessToken = json.str("AccessToken")
                 val userId = json["User"].str("Id")
-                if (accessToken == null || userId == null) return@withContext "Réponse inattendue du serveur."
+                if (accessToken == null || userId == null) return@withContext tr("Réponse inattendue du serveur.")
                 MediaServers.save(kind, saved.copy(url = url, userId = userId, userName = json["User"].str("Name") ?: user))
                 saveToken(accessToken)
                 null
@@ -309,7 +310,7 @@ class MediaBrowserServer(kind: MediaServerKind) : MediaServer(kind) {
         return json.array("Items").mapNotNull { e ->
             val number = e.int("IndexNumber") ?: 0
             val id = e.str("Id") ?: return@mapNotNull null
-            MediaLibraryEpisode(id, e.int("ParentIndexNumber") ?: 1, number, e.str("Name") ?: "Épisode $number", imageUrl(e, 480), streamUrl(id))
+            MediaLibraryEpisode(id, e.int("ParentIndexNumber") ?: 1, number, e.str("Name") ?: tr("Épisode %s", number), imageUrl(e, 480), streamUrl(id))
         }
     }
 
@@ -329,10 +330,10 @@ class MediaBrowserServer(kind: MediaServerKind) : MediaServer(kind) {
 
     // -------------------- matching an IMDB title --------------------
 
-    override suspend fun findMovie(imdbId: String, title: String, year: Int?) = findItems("Movie", imdbId, title, year).map(::match)
+    override suspend fun findMovie(imdbId: String, title: String, year: Int?) = findItems(tr("Movie"), imdbId, title, year).map(::match)
 
     override suspend fun findEpisode(seriesImdbId: String, title: String, year: Int?, season: Int, episode: Int): List<MediaServerMatch> =
-        findItems("Series", seriesImdbId, title, year).flatMap { series ->
+        findItems(tr("Series"), seriesImdbId, title, year).flatMap { series ->
             tryGet(get("/Shows/${series.str("Id")}/Episodes?UserId=${saved.userId}&Season=$season&Fields=MediaStreams"))
                 .array("Items").filter { it.int("ParentIndexNumber") == season && it.int("IndexNumber") == episode }.map(::match)
         }
@@ -360,7 +361,7 @@ class MediaBrowserServer(kind: MediaServerKind) : MediaServer(kind) {
 /** Plex: PIN sign-in on plex.tv/link, then the user's Plex Media Server,
  *  found through plex.tv's resources; playback uses the media part's URL. */
 class PlexServer : MediaServer(MediaServerKind.Plex) {
-    override val name = "Plex"
+    override val name = tr("Plex")
     override val color = 0xFFE5A00D
     private var flow: Job? = null
     private var access: Pair<String, String>? = null
@@ -390,7 +391,7 @@ class PlexServer : MediaServer(MediaServerKind.Plex) {
                 val deadline = System.currentTimeMillis() + (pin.long("expiresIn").takeIf { it > 0 } ?: 900) * 1000
                 while (System.currentTimeMillis() < deadline) {
                     delay(3000)
-                    val check = try { Http.json(request("https://plex.tv/api/v2/pins/$id", null).build(), "Plex") } catch (_: ServiceException) { continue }
+                    val check = try { Http.json(request("https://plex.tv/api/v2/pins/$id", null).build(), tr("Plex")) } catch (_: ServiceException) { continue }
                     check.str("authToken")?.ifEmpty { null }?.let { t ->
                         saveToken(t)
                         refreshUser()
@@ -398,7 +399,7 @@ class PlexServer : MediaServer(MediaServerKind.Plex) {
                         return@launch
                     }
                 }
-                update { it.copy(error = "Le code Plex a expiré. Recommencez.") }
+                update { it.copy(error = tr("Le code Plex a expiré. Recommencez.")) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -496,7 +497,7 @@ class PlexServer : MediaServer(MediaServerKind.Plex) {
         val (base, t) = access() ?: return MediaLibraryPage(emptyList(), 0)
         val url = "$base/library/sections/${section.id}/all?type=${if (section.kind == MediaSectionKind.Shows) 2 else 1}" +
             "&includeGuids=1&sort=titleSort&X-Plex-Container-Start=$start&X-Plex-Container-Size=$limit"
-        val container = tryGet(request(url, t).build())?.get("MediaContainer") ?: return MediaLibraryPage(emptyList(), 0)
+        val container = tryGet(request(url, t).build())?.get(tr("MediaContainer")) ?: return MediaLibraryPage(emptyList(), 0)
         val rows = container.array("Metadata")
         val items = rows.mapNotNull { m ->
             MediaLibraryItem(

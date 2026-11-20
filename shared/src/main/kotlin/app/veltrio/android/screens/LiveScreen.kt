@@ -1,5 +1,6 @@
 package app.veltrio.android.screens
 
+import app.veltrio.shared.i18n.tr
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -101,10 +102,10 @@ fun LiveScreen() {
     if (adding) AddPlaylistDialog { adding = false }
     if (playlist == null) {
         Column(Modifier.fillMaxSize().padding(Spacing.lg).padding(top = 60.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
-            Eyebrow("Direct")
-            Text("Silence radio.", style = Type.displaySerif(34), color = p.textPrimary)
-            Text("Connectez un fournisseur Xtream Codes ou collez l'URL d'une playlist M3U. Les identifiants ne quittent jamais cet appareil.", style = Type.body(14), color = p.textSecondary)
-            PrimaryButton("Ajouter une source", icon = Icons.Filled.Add) { adding = true }
+            Eyebrow(tr("Direct"))
+            Text(tr("Silence radio."), style = Type.displaySerif(34), color = p.textPrimary)
+            Text(tr("Connectez un fournisseur Xtream Codes ou collez l'URL d'une playlist M3U. Les identifiants ne quittent jamais cet appareil."), style = Type.body(14), color = p.textSecondary)
+            PrimaryButton(tr("Ajouter une source"), icon = Icons.Filled.Add) { adding = true }
         }
         return
     }
@@ -156,42 +157,42 @@ private fun PlaylistView(playlist: PlaylistRef, playlists: List<PlaylistRef>, on
             Column(Modifier.padding(start = Spacing.lg, end = Spacing.lg, top = Spacing.md), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Eyebrow(
                     when (kind) {
-                        ChannelKind.Movie -> "Films · ${all.size}"
-                        ChannelKind.Series -> "Séries · ${all.size}"
-                        ChannelKind.Live -> "Direct · ${all.size} chaînes"
+                        ChannelKind.Movie -> tr("Films · %s", all.size)
+                        ChannelKind.Series -> tr("Séries · %s", all.size)
+                        ChannelKind.Live -> tr("Direct · %s chaînes", all.size)
                     },
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     PlaylistPicker(playlist, playlists, Modifier.weight(1f))
                     Box(Modifier.size(40.dp).clickable { reload++ }, contentAlignment = Alignment.Center) {
-                        Icon(Icons.Filled.Refresh, "Actualiser", tint = p.textSecondary)
+                        Icon(Icons.Filled.Refresh, tr("Actualiser"), tint = p.textSecondary)
                     }
                     Box(Modifier.size(40.dp).clickable(onClick = onAdd), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Filled.Add, "Ajouter une source", tint = p.textSecondary)
+                        Icon(Icons.Filled.Add, tr("Ajouter une source"), tint = p.textSecondary)
                     }
                 }
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (playlist.isXtream) {
-                        listOf("TV en direct" to ChannelKind.Live, "Films" to ChannelKind.Movie, "Séries" to ChannelKind.Series).forEach { (label, k) ->
+                        listOf(tr("TV en direct") to ChannelKind.Live, tr("Films") to ChannelKind.Movie, tr("Séries") to ChannelKind.Series).forEach { (label, k) ->
                             Chip(label, k == kind) { kind = k }
                         }
                     }
                     if (kind == ChannelKind.Live) {
                         if (playlist.isXtream) Spacer(Modifier.width(8.dp))
-                        Chip("Liste", !guide) { guide = false }
-                        Chip("Guide TV", guide) { guide = true }
+                        Chip(tr("Liste"), !guide) { guide = false }
+                        Chip(tr("Guide TV"), guide) { guide = true }
                     }
                 }
-                val allLabel = when (kind) { ChannelKind.Movie -> "Tous les films"; ChannelKind.Series -> "Toutes les séries"; else -> "Tous les bouquets" }
-                Picker("Bouquet", listOf(null to "$allLabel  (${all.size})") + groups.map { (g, n) -> g to "$g  ($n)" }, group) { group = it }
-                TextInput(filter, { filter = it }, when (kind) { ChannelKind.Movie -> "Rechercher un film"; ChannelKind.Series -> "Rechercher une série"; else -> "Rechercher une chaîne" })
+                val allLabel = when (kind) { ChannelKind.Movie -> tr("Tous les films"); ChannelKind.Series -> tr("Toutes les séries"); else -> tr("Tous les bouquets") }
+                Picker(tr("Bouquet"), listOf(null to "$allLabel  (${all.size})") + groups.map { (g, n) -> g to "$g  ($n)" }, group) { group = it }
+                TextInput(filter, { filter = it }, when (kind) { ChannelKind.Movie -> tr("Rechercher un film"); ChannelKind.Series -> tr("Rechercher une série"); else -> tr("Rechercher une chaîne") })
             }
         }
         when {
             items == null -> item { LoadingRow() }
             error != null -> item { Text(error!!, style = Type.body(13), color = p.danger, modifier = Modifier.padding(Spacing.lg)) }
             visible.isEmpty() -> item {
-                Text(if (text.isNotEmpty()) "Rien ne correspond à « $text »." else "Rien dans ce bouquet.", style = Type.body(13), color = p.textSecondary, modifier = Modifier.padding(Spacing.lg))
+                Text(if (text.isNotEmpty()) tr("Rien ne correspond à « %s ».", text) else tr("Rien dans ce bouquet."), style = Type.body(13), color = p.textSecondary, modifier = Modifier.padding(Spacing.lg))
             }
             kind != ChannelKind.Live -> item { VodGrid(playlist, visible) }
             guide -> item {
@@ -217,7 +218,7 @@ private fun PlaylistPicker(playlist: PlaylistRef, playlists: List<PlaylistRef>, 
     Box(modifier) {
         Row(Modifier.clickable(enabled = playlists.size > 1) { open = true }, verticalAlignment = Alignment.CenterVertically) {
             Text(playlist.name, style = Type.displaySerif(30), color = p.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-            if (playlists.size > 1) Icon(Icons.Filled.ArrowDropDown, "Changer de source", tint = p.textSecondary)
+            if (playlists.size > 1) Icon(Icons.Filled.ArrowDropDown, tr("Changer de source"), tint = p.textSecondary)
         }
         DropdownMenu(open, { open = false }) {
             playlists.forEach { pl ->
@@ -252,7 +253,7 @@ private fun ChannelRow(c: ChannelItem, selected: Boolean, now: Instant, onClick:
                 }
             } else Text(c.group, style = Type.caption(11), color = p.textQuaternary, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        if (c.hasCatchup) Icon(Icons.Filled.History, "Replay", Modifier.size(14.dp), tint = p.textQuaternary)
+        if (c.hasCatchup) Icon(Icons.Filled.History, tr("Replay"), Modifier.size(14.dp), tint = p.textQuaternary)
     }
 }
 
@@ -291,8 +292,8 @@ private fun ChannelHero(playlist: PlaylistRef, c: ChannelItem, now: Instant) {
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("● EN DIRECT", style = Type.eyebrow(9, 0.18f), color = p.danger)
-                    if (c.number > 0) Text("CH ${c.numberLabel}", style = Type.mono(9, FontWeight.SemiBold), color = p.textTertiary)
+                    Text(tr("● EN DIRECT"), style = Type.eyebrow(9, 0.18f), color = p.danger)
+                    if (c.number > 0) Text(tr("CH %s", c.numberLabel), style = Type.mono(9, FontWeight.SemiBold), color = p.textTertiary)
                 }
                 Text(c.name, style = Type.title(18), color = p.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(c.group.uppercase(), style = Type.eyebrow(9, 0.14f), color = p.textTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -300,15 +301,15 @@ private fun ChannelHero(playlist: PlaylistRef, c: ChannelItem, now: Instant) {
         }
         if (nowTitle != null) {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Row { Eyebrow("En ce moment", modifier = Modifier.weight(1f)); Text(nowTime ?: "", style = Type.mono(11), color = p.textTertiary) }
+                Row { Eyebrow(tr("En ce moment"), modifier = Modifier.weight(1f)); Text(nowTime ?: "", style = Type.mono(11), color = p.textTertiary) }
                 Text(nowTitle, style = Type.title(16), color = p.textPrimary)
                 Box(Modifier.fillMaxWidth().height(3.dp).background(p.hairline)) { Box(Modifier.fillMaxWidth(progress).fillMaxHeight().background(p.accent)) }
                 description?.let { Text(it, style = Type.caption(12), color = p.textSecondary, maxLines = 3, overflow = TextOverflow.Ellipsis) }
             }
-        } else Text("Pas d'informations de programme pour cette chaîne.", style = Type.caption(12), color = p.textTertiary)
+        } else Text(tr("Pas d'informations de programme pour cette chaîne."), style = Type.caption(12), color = p.textTertiary)
         if (upcoming.isNotEmpty()) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Eyebrow("À suivre", p.textTertiary)
+                Eyebrow(tr("À suivre"), p.textTertiary)
                 upcoming.forEach { (time, title) ->
                     Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                         Text(time, style = Type.mono(11, FontWeight.SemiBold), color = p.accentText, modifier = Modifier.width(42.dp))
@@ -318,8 +319,8 @@ private fun ChannelHero(playlist: PlaylistRef, c: ChannelItem, now: Instant) {
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            PrimaryButton("Regarder", Modifier.weight(1f), icon = Icons.Filled.PlayArrow) { Nav.play(PlayRequest.forChannel(c, playlist)) }
-            if (c.hasCatchup && account != null) GhostButton("Revoir", icon = Icons.Filled.History) { replay = true }
+            PrimaryButton(tr("Regarder"), Modifier.weight(1f), icon = Icons.Filled.PlayArrow) { Nav.play(PlayRequest.forChannel(c, playlist)) }
+            if (c.hasCatchup && account != null) GhostButton(tr("Revoir"), icon = Icons.Filled.History) { replay = true }
         }
     }
     if (replay && account != null) CatchupDialog(playlist, c) { replay = false }
@@ -334,12 +335,12 @@ internal fun CatchupDialog(playlist: PlaylistRef, c: ChannelItem, onPlay: (PlayR
     LaunchedEffect(Unit) { programmes = XtreamClient.catchup(account, c.xtreamId!!) }
     Dialog(onDismiss) {
         Column(Modifier.fillMaxWidth().background(p.backgroundAlt).border(1.dp, p.border).padding(vertical = 18.dp)) {
-            Eyebrow("Revoir", modifier = Modifier.padding(horizontal = 20.dp))
+            Eyebrow(tr("Revoir"), modifier = Modifier.padding(horizontal = 20.dp))
             Text(c.name, style = Type.title(18), color = p.textPrimary, modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp))
             val list = programmes
             when {
                 list == null -> LoadingRow()
-                list.isEmpty() -> Text("Aucun programme à revoir.", style = Type.body(13), color = p.textSecondary, modifier = Modifier.padding(20.dp))
+                list.isEmpty() -> Text(tr("Aucun programme à revoir."), style = Type.body(13), color = p.textSecondary, modifier = Modifier.padding(20.dp))
                 else -> LazyColumn(Modifier.height(420.dp)) {
                     items(list.take(80)) { prog ->
                         Row(
@@ -347,7 +348,7 @@ internal fun CatchupDialog(playlist: PlaylistRef, c: ChannelItem, onPlay: (PlayR
                                 onDismiss()
                                 onPlay(
                                     PlayRequest(
-                                        title = c.name, subtitle = "Replay · ${prog.timeRange} · ${prog.title}",
+                                        title = c.name, subtitle = tr("Replay · %s · %s", prog.timeRange, prog.title),
                                         url = XtreamClient.timeshiftUrl(account, c.xtreamId!!, prog), channel = c, playlist = playlist,
                                     ),
                                 )
@@ -360,7 +361,7 @@ internal fun CatchupDialog(playlist: PlaylistRef, c: ChannelItem, onPlay: (PlayR
                     }
                 }
             }
-            TextButton(onDismiss, Modifier.align(Alignment.End).padding(end = 12.dp)) { Text("FERMER", style = Type.eyebrow(10, 0.18f), color = p.textPrimary) }
+            TextButton(onDismiss, Modifier.align(Alignment.End).padding(end = 12.dp)) { Text(tr("FERMER"), style = Type.eyebrow(10, 0.18f), color = p.textPrimary) }
         }
     }
 }
@@ -374,7 +375,7 @@ private fun Guide(playlist: PlaylistRef, channels: List<ChannelItem>, now: Insta
     val loading by EpgStore.loading.collectAsState()
     if (!EpgStore.hasGuide) {
         Text(
-            if (loading) "Chargement du guide TV…" else EpgStore.error ?: "Cette source ne fournit pas de guide TV.",
+            if (loading) tr("Chargement du guide TV…") else EpgStore.error ?: tr("Cette source ne fournit pas de guide TV."),
             style = Type.body(13), color = p.textSecondary, modifier = Modifier.padding(Spacing.lg),
         )
         return
@@ -476,31 +477,31 @@ internal fun AddPlaylistDialog(onDismiss: () -> Unit) {
             Modifier.fillMaxWidth().background(p.backgroundAlt).border(1.dp, p.border).verticalScroll(rememberScrollState()).padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Eyebrow("Direct")
-            Text("Ajouter une source", style = Type.displaySerif(24), color = p.textPrimary)
+            Eyebrow(tr("Direct"))
+            Text(tr("Ajouter une source"), style = Type.displaySerif(24), color = p.textPrimary)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Chip("Xtream Codes", mode == "xtream") { mode = "xtream" }
-                Chip("URL M3U", mode == "m3u") { mode = "m3u" }
-                Chip("Fichier", mode == "file") { mode = "file" }
+                Chip(tr("Xtream Codes"), mode == "xtream") { mode = "xtream" }
+                Chip(tr("URL M3U"), mode == "m3u") { mode = "m3u" }
+                Chip(tr("Fichier"), mode == "file") { mode = "file" }
             }
-            TextInput(name, { name = it }, "Nom (facultatif)")
+            TextInput(name, { name = it }, tr("Nom (facultatif)"))
             when (mode) {
                 "xtream" -> {
                     TextInput(host, { host = it }, "Serveur (http://exemple.com:8080)")
-                    TextInput(user, { user = it }, "Utilisateur")
-                    TextInput(password, { password = it }, "Mot de passe", secret = true)
+                    TextInput(user, { user = it }, tr("Utilisateur"))
+                    TextInput(password, { password = it }, tr("Mot de passe"), secret = true)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("FORMAT DU DIRECT", style = Type.eyebrow(9, 0.18f), color = p.textTertiary)
+                        Text(tr("FORMAT DU DIRECT"), style = Type.eyebrow(9, 0.18f), color = p.textTertiary)
                         Chip("TS", output == "ts") { output = "ts" }
                         Chip("HLS", output == "m3u8") { output = "m3u8" }
                     }
                 }
                 "m3u" -> TextInput(url, { url = it }, "https://…/playlist.m3u")
-                else -> Text("Choisissez un fichier .m3u ou .m3u8 : il est copié dans l'app.", style = Type.body(13), color = p.textSecondary)
+                else -> Text(tr("Choisissez un fichier .m3u ou .m3u8 : il est copié dans l'app."), style = Type.body(13), color = p.textSecondary)
             }
             error?.let { Text(it, style = Type.caption(12), color = p.danger) }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                PrimaryButton(if (mode == "file") "Choisir le fichier" else "Ajouter", loading = busy) {
+                PrimaryButton(if (mode == "file") tr("Choisir le fichier") else tr("Ajouter"), loading = busy) {
                     when (mode) {
                         "xtream" -> {
                             busy = true
@@ -517,7 +518,7 @@ internal fun AddPlaylistDialog(onDismiss: () -> Unit) {
                         else -> pick.launch(arrayOf("*/*"))
                     }
                 }
-                GhostButton("Annuler", onClick = onDismiss)
+                GhostButton(tr("Annuler"), onClick = onDismiss)
             }
         }
     }

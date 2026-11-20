@@ -1,5 +1,6 @@
 package app.veltrio.android.screens
 
+import app.veltrio.shared.i18n.tr
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -77,33 +78,33 @@ internal fun MediaServerCard(server: MediaServer) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Box(Modifier.size(10.dp).clip(CircleShape).background(Color(server.color)))
             Text(server.name, style = Type.title(16), color = p.textPrimary, modifier = Modifier.weight(1f))
-            if (state.connected) Text("CONNECTÉ", style = Type.eyebrow(9, 0.2f), color = p.success)
+            if (state.connected) Text(tr("CONNECTÉ"), style = Type.eyebrow(9, 0.2f), color = p.success)
         }
         when {
             state.connected -> {
                 Text(listOfNotNull(state.user, state.host).joinToString(" · "), style = Type.mono(12), color = p.textSecondary)
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    GhostButton("Parcourir") { Nav.showLibrary(server.kind) }
-                    GhostButton("Déconnecter", color = p.danger) { server.disconnect() }
+                    GhostButton(tr("Parcourir")) { Nav.showLibrary(server.kind) }
+                    GhostButton(tr("Déconnecter"), color = p.danger) { server.disconnect() }
                 }
             }
             state.pendingCode != null -> {
-                Text("Ouvrez ${state.pendingUrl} et saisissez ce code :", style = Type.body(13), color = p.textSecondary)
+                Text(tr("Ouvrez %s et saisissez ce code :", state.pendingUrl), style = Type.body(13), color = p.textSecondary)
                 Text(state.pendingCode ?: "", style = Type.mono(28, FontWeight.Bold), color = p.accentText)
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    PrimaryButton("Ouvrir la page", icon = Icons.AutoMirrored.Filled.OpenInNew) { openUrl(context, state.pendingUrl ?: "") }
-                    GhostButton("Annuler") { (server as PlexServer).cancelPinFlow() }
+                    PrimaryButton(tr("Ouvrir la page"), icon = Icons.AutoMirrored.Filled.OpenInNew) { openUrl(context, state.pendingUrl ?: "") }
+                    GhostButton(tr("Annuler")) { (server as PlexServer).cancelPinFlow() }
                 }
             }
             server is PlexServer -> {
-                Text("Connexion par code, comme sur une TV : votre serveur Plex est trouvé tout seul.", style = Type.body(13), color = p.textSecondary)
-                PrimaryButton("Se connecter", loading = state.busy) { server.startPinFlow() }
+                Text(tr("Connexion par code, comme sur une TV : votre serveur Plex est trouvé tout seul."), style = Type.body(13), color = p.textSecondary)
+                PrimaryButton(tr("Se connecter"), loading = state.busy) { server.startPinFlow() }
             }
             server is MediaBrowserServer -> {
                 TextInput(host, { host = it }, "Adresse (http://192.168.1.10:8096)")
-                TextInput(user, { user = it }, "Utilisateur")
-                TextInput(password, { password = it }, "Mot de passe", secret = true)
-                PrimaryButton("Se connecter", enabled = host.isNotBlank() && user.isNotBlank(), loading = state.busy) { server.connect(host, user, password) }
+                TextInput(user, { user = it }, tr("Utilisateur"))
+                TextInput(password, { password = it }, tr("Mot de passe"), secret = true)
+                PrimaryButton(tr("Se connecter"), enabled = host.isNotBlank() && user.isNotBlank(), loading = state.busy) { server.connect(host, user, password) }
             }
         }
         state.error?.let { Text(it, style = Type.caption(12), color = p.danger) }
@@ -149,13 +150,13 @@ fun MediaServerSeriesScreen(server: MediaServer, item: MediaLibraryItem) {
         item {
             Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Box(Modifier.size(40.dp).clickable { Nav.back() }, contentAlignment = Alignment.Center) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "Retour", tint = p.textPrimary)
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Retour"), tint = p.textPrimary)
                 }
-                Eyebrow("${server.name} · Série")
+                Eyebrow(tr("%s · Série", server.name))
                 Text(item.title, style = Type.displaySerif(32), color = p.textPrimary)
                 episodes?.let { list ->
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        list.map { it.season }.distinct().forEach { n -> Chip("Saison $n", n == season) { season = n } }
+                        list.map { it.season }.distinct().forEach { n -> Chip(tr("Saison %s", n), n == season) { season = n } }
                     }
                 }
             }

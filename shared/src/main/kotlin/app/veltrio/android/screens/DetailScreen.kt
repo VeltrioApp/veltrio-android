@@ -1,5 +1,6 @@
 package app.veltrio.android.screens
 
+import app.veltrio.shared.i18n.tr
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
@@ -75,8 +76,8 @@ import coil3.compose.AsyncImage
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
-private val qualities = listOf("Tout", "4K", "1080p", "720p")
-private const val CACHED = "⚡ En cache"
+private val qualities = listOf(tr("Tout"), "4K", "1080p", "720p")
+private val CACHED get() = tr("⚡ En cache")
 
 /** A title's page, as macOS's DetailView on a phone's width: the backdrop,
  *  poster and facts, Watch / Save, credits; for a series the seasons and
@@ -92,7 +93,7 @@ fun DetailScreen(request: DetailRequest) {
     var season by remember { mutableStateOf<Int?>(null) }
     var streams by remember { mutableStateOf<List<StreamItem>?>(null) }
     var showStreams by remember { mutableStateOf(false) }
-    var quality by remember { mutableStateOf("Tout") }
+    var quality by remember { mutableStateOf(tr("Tout")) }
     var source by remember { mutableStateOf<String?>(null) }
     var loadJob by remember { mutableStateOf<Job?>(null) }
     val entries by WatchStore.entries.collectAsState()
@@ -101,7 +102,7 @@ fun DetailScreen(request: DetailRequest) {
     fun loadStreams(id: String) {
         loadJob?.cancel()
         streams = null
-        quality = "Tout"
+        quality = tr("Tout")
         source = null
         loadJob = scope.launch {
             // The user's own copies (media servers, IPTV provider) are looked
@@ -199,7 +200,7 @@ fun DetailScreen(request: DetailRequest) {
 
     val visible = streams.orEmpty().filter {
         (source == null || it.addonName == source) && when (quality) {
-            "Tout" -> true
+            tr("Tout") -> true
             CACHED -> it.cachedOn != null
             else -> it.quality == quality
         }
@@ -216,7 +217,7 @@ fun DetailScreen(request: DetailRequest) {
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, null, Modifier.size(14.dp), tint = Color.White)
-                    Text("RETOUR", style = Type.eyebrow(10, 0.2f), color = Color.White)
+                    Text(tr("RETOUR"), style = Type.eyebrow(10, 0.2f), color = Color.White)
                 }
                 Column(Modifier.align(Alignment.BottomStart).padding(horizontal = Spacing.lg), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -235,10 +236,10 @@ fun DetailScreen(request: DetailRequest) {
                         AsyncImage(d?.poster ?: request.poster, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                     }
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Eyebrow("Aperçu", p.textTertiary)
-                        Fact("Sortie", d?.year)
-                        Fact("Durée", d?.runtime)
-                        Fact("Genres", d?.genres?.takeIf { it.isNotEmpty() }?.joinToString(", "))
+                        Eyebrow(tr("Aperçu"), p.textTertiary)
+                        Fact(tr("Sortie"), d?.year)
+                        Fact(tr("Durée"), d?.runtime)
+                        Fact(tr("Genres"), d?.genres?.takeIf { it.isNotEmpty() }?.joinToString(", "))
                         d?.rating?.let { Text("★ $it  IMDb", style = Type.mono(12), color = p.accentText) }
                     }
                 }
@@ -247,12 +248,12 @@ fun DetailScreen(request: DetailRequest) {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     val resume = WatchStore.resumePosition(request.type, request.id) > 0
                     val label = when {
-                        d?.isSeries == true && !showStreams -> (episode ?: d.episodes.firstOrNull { it.season == season })?.let { "Lire ${it.code.replace(" · ", "")}" } ?: "Aucun épisode"
-                        streams == null -> "Chargement des flux"
-                        visible.isEmpty() -> "Aucun flux"
-                        episode != null -> "Lire ${episode!!.code.replace(" · ", "")}"
-                        resume -> "Reprendre"
-                        else -> "Regarder"
+                        d?.isSeries == true && !showStreams -> (episode ?: d.episodes.firstOrNull { it.season == season })?.let { tr("Lire %s", it.code.replace(" · ", "")) } ?: tr("Aucun épisode")
+                        streams == null -> tr("Chargement des flux")
+                        visible.isEmpty() -> tr("Aucun flux")
+                        episode != null -> tr("Lire %s", episode!!.code.replace(" · ", ""))
+                        resume -> tr("Reprendre")
+                        else -> tr("Regarder")
                     }
                     val canPlay = if (d?.isSeries == true && !showStreams) d.episodes.isNotEmpty() else visible.isNotEmpty()
                     PrimaryButton(label, Modifier.weight(1f), icon = Icons.Filled.PlayArrow, enabled = canPlay, loading = showStreams && streams == null) {
@@ -265,7 +266,7 @@ fun DetailScreen(request: DetailRequest) {
                         } else visible.firstOrNull()?.let { play(it) }
                     }
                     GhostButton(
-                        if (saved) "Enregistré" else "Enregistrer", icon = if (saved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
+                        if (saved) tr("Enregistré") else tr("Enregistrer"), icon = if (saved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
                         color = if (saved) p.accentText else p.textPrimary,
                     ) {
                         WatchStore.toggleLibrary(request.type, request.id, d?.name ?: request.name, d?.poster ?: request.poster, d?.background ?: request.background, d?.addon ?: request.addon)
@@ -274,10 +275,10 @@ fun DetailScreen(request: DetailRequest) {
                 if (d != null && (d.cast.isNotEmpty() || d.director.isNotEmpty())) {
                     Column(Modifier.padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Box(Modifier.fillMaxWidth().height(1.dp).background(p.hairline))
-                        Eyebrow("Générique", p.textTertiary)
-                        Fact("Réalisation", d.director.take(3).joinToString(", ").ifEmpty { null })
-                        Fact("Scénario", d.writer.take(3).joinToString(", ").ifEmpty { null })
-                        Fact("Distribution", d.cast.take(6).joinToString(", ").ifEmpty { null })
+                        Eyebrow(tr("Générique"), p.textTertiary)
+                        Fact(tr("Réalisation"), d.director.take(3).joinToString(", ").ifEmpty { null })
+                        Fact(tr("Scénario"), d.writer.take(3).joinToString(", ").ifEmpty { null })
+                        Fact(tr("Distribution"), d.cast.take(6).joinToString(", ").ifEmpty { null })
                     }
                 }
                 Box(Modifier.fillMaxWidth().height(1.dp).background(p.hairline))
@@ -288,12 +289,12 @@ fun DetailScreen(request: DetailRequest) {
             item {
                 Column(Modifier.padding(start = Spacing.lg, top = Spacing.lg), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Eyebrow("Épisodes")
-                        Eyebrow("${d.episodes.count { it.season == season }} · ${d.episodes.size} au total", p.textTertiary)
+                        Eyebrow(tr("Épisodes"))
+                        Eyebrow(tr("%s · %s au total", d.episodes.count { it.season == season }, d.episodes.size), p.textTertiary)
                     }
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         d.episodes.map { it.season }.distinct().forEach { s ->
-                            Chip(if (s == null || s == 0) "Bonus" else "Saison $s", s == season) { season = s }
+                            Chip(if (s == null || s == 0) tr("Bonus") else tr("Saison %s", s), s == season) { season = s }
                         }
                         Spacer(Modifier.width(Spacing.lg))
                     }
@@ -317,17 +318,17 @@ fun DetailScreen(request: DetailRequest) {
                             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, null, Modifier.size(12.dp), tint = p.textPrimary)
-                            Text("ÉPISODES", style = Type.eyebrow(10, 0.2f), color = p.textPrimary)
+                            Text(tr("ÉPISODES"), style = Type.eyebrow(10, 0.2f), color = p.textPrimary)
                         }
                         Text("${episode!!.code} — ${episode!!.title}", style = Type.title(20), color = p.textPrimary)
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Eyebrow("Flux")
-                        if (streams != null) Eyebrow("${visible.size} sur ${streams!!.size}", p.textTertiary)
+                        Eyebrow(tr("Flux"))
+                        if (streams != null) Eyebrow(tr("%s sur %s", visible.size, streams!!.size), p.textTertiary)
                     }
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         // "⚡ En cache" only means something with a debrid service connected.
-                        val filters = if (DebridService.anyConnected) listOf("Tout", CACHED) + qualities.drop(1) else qualities
+                        val filters = if (DebridService.anyConnected) listOf(tr("Tout"), CACHED) + qualities.drop(1) else qualities
                         filters.forEach { q -> Chip(q, q == quality) { quality = q } }
                         streams.orEmpty().map { it.addonName }.distinct().takeIf { it.size > 1 }?.forEach { name ->
                             Chip(name, name == source) { source = if (source == name) null else name }
@@ -340,9 +341,9 @@ fun DetailScreen(request: DetailRequest) {
                 visible.isEmpty() -> item {
                     Text(
                         if (streams!!.isEmpty()) {
-                            if (Core.enabledAddons.any { it.serves("stream", request.type) }) "Aucune source n'a répondu avec un flux pour ce titre."
-                            else "Aucune source installée ne fournit de flux. Ajoutez-en une dans Sources."
-                        } else "Aucun flux ne correspond à ces filtres.",
+                            if (Core.enabledAddons.any { it.serves("stream", request.type) }) tr("Aucune source n'a répondu avec un flux pour ce titre.")
+                            else tr("Aucune source installée ne fournit de flux. Ajoutez-en une dans Sources.")
+                        } else tr("Aucun flux ne correspond à ces filtres."),
                         style = Type.body(13), color = p.textSecondary, modifier = Modifier.padding(Spacing.lg),
                     )
                 }
@@ -385,7 +386,7 @@ private fun EpisodeRow(request: DetailRequest, ep: EpisodeItem, onClick: () -> U
                 Box(Modifier.align(Alignment.BottomStart).fillMaxWidth((progress.position / progress.duration).toFloat().coerceIn(0f, 1f)).height(3.dp).background(p.accent))
             }
             if (progress?.watched == true) {
-                Icon(Icons.Filled.CheckCircle, "Vu", Modifier.align(Alignment.TopEnd).padding(6.dp).size(18.dp), tint = p.accent)
+                Icon(Icons.Filled.CheckCircle, tr("Vu"), Modifier.align(Alignment.TopEnd).padding(6.dp).size(18.dp), tint = p.accent)
             }
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -406,7 +407,7 @@ private fun StreamRow(stream: StreamItem, onDownload: (() -> Unit)? = null, onCl
     val p = VeltrioTheme.palette
     var menu by remember { mutableStateOf(false) }
     androidx.compose.material3.DropdownMenu(menu, { menu = false }) {
-        androidx.compose.material3.DropdownMenuItem({ Text("Télécharger pour regarder hors ligne") }, {
+        androidx.compose.material3.DropdownMenuItem({ Text(tr("Télécharger pour regarder hors ligne")) }, {
             menu = false
             onDownload?.invoke()
         })

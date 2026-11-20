@@ -1,5 +1,6 @@
 package app.veltrio.android
 
+import app.veltrio.shared.i18n.tr
 import android.content.pm.ActivityInfo
 import android.content.pm.ApplicationInfo
 import androidx.activity.ComponentActivity
@@ -108,7 +109,7 @@ fun VeltrioRoot(activity: ComponentActivity, tv: Boolean, sections: @Composable 
                 LaunchedEffect(Unit) {
                     val url = activity.intent.getStringExtra("play_url")
                     if (debuggable && url != null) {
-                        Nav.play(PlayRequest(title = "Test", subtitle = url, url = url, videoId = activity.intent.getStringExtra("video_id")))
+                        Nav.play(PlayRequest(title = tr("Test"), subtitle = url, url = url, videoId = activity.intent.getStringExtra("video_id")))
                     }
                 }
             }

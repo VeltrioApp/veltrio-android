@@ -1,5 +1,6 @@
 package app.veltrio.android.screens
 
+import app.veltrio.shared.i18n.tr
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -95,10 +96,10 @@ fun IptvSeriesScreen(playlist: PlaylistRef, item: ChannelItem) {
                 AsyncImage(s?.backdrop ?: s?.cover ?: item.logo, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                 Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to p.background.copy(alpha = 0.3f), 1f to p.background)))
                 Box(Modifier.statusBarsPadding().padding(Spacing.md).size(40.dp).background(Color.Black.copy(alpha = 0.45f)).clickable { Nav.back() }, contentAlignment = Alignment.Center) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "Retour", tint = Color.White)
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Retour"), tint = Color.White)
                 }
                 Column(Modifier.align(Alignment.BottomStart).padding(horizontal = Spacing.lg), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Eyebrow("${playlist.name} · Série")
+                    Eyebrow(tr("%s · Série", playlist.name))
                     Text(s?.name ?: item.name, style = Type.displaySerif(34), color = p.textPrimary, maxLines = 3, overflow = TextOverflow.Ellipsis)
                     val facts = listOfNotNull(s?.rating?.let { "★ $it" }, s?.released?.take(4), s?.genre)
                     if (facts.isNotEmpty()) Text(facts.joinToString("   "), style = Type.mono(11), color = p.textSecondary)
@@ -110,7 +111,7 @@ fun IptvSeriesScreen(playlist: PlaylistRef, item: ChannelItem) {
                 s?.plot?.let { Text(it, style = Type.body(14), color = p.textSecondary) }
                 error?.let { Text(it, style = Type.body(13), color = p.danger) }
                 if (s != null) Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    s.episodes.map { it.season }.distinct().forEach { n -> Chip("Saison $n", n == season) { season = n } }
+                    s.episodes.map { it.season }.distinct().forEach { n -> Chip(tr("Saison %s", n), n == season) { season = n } }
                 }
             }
         }

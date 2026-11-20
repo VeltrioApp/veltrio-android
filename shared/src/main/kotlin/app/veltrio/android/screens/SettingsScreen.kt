@@ -1,5 +1,6 @@
 package app.veltrio.android.screens
 
+import app.veltrio.shared.i18n.tr
 import android.content.ClipData
 import android.content.Intent
 import android.net.Uri
@@ -84,27 +85,27 @@ fun SettingsScreen() {
     Column(Modifier.fillMaxSize().background(p.background).statusBarsPadding()) {
         Row(Modifier.padding(Spacing.md), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(40.dp).clickable { Nav.back() }, contentAlignment = Alignment.Center) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, "Retour", tint = p.textPrimary)
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Retour"), tint = p.textPrimary)
             }
         }
         Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = Spacing.xl), verticalArrangement = Arrangement.spacedBy(Spacing.xl)) {
-            PageHeader("Préférences", "Réglages")
-            Section(1, "Sources") {
-                Body("Les addons Stremio et les playlists IPTV se gèrent dans l'onglet Sources.")
-                GhostButton("Ouvrir les sources") { Nav.showTab(3) }
+            PageHeader(tr("Préférences"), tr("Réglages"))
+            Section(1, tr("Sources")) {
+                Body(tr("Les addons Stremio et les playlists IPTV se gèrent dans l'onglet Sources."))
+                GhostButton(tr("Ouvrir les sources")) { Nav.showTab(3) }
             }
-            Section(2, "Debrid") {
-                Body("Un service debrid lit les torrents en direct depuis ses serveurs, en HTTPS, sans partage pair à pair. Les flux qu'il a déjà en cache sont marqués ⚡ et passent en tête. Les clés restent sur cet appareil, chiffrées par Android.")
+            Section(2, tr("Debrid")) {
+                Body(tr("Un service debrid lit les torrents en direct depuis ses serveurs, en HTTPS, sans partage pair à pair. Les flux qu'il a déjà en cache sont marqués ⚡ et passent en tête. Les clés restent sur cet appareil, chiffrées par Android."))
                 val accounts by DebridService.accounts.collectAsState()
                 accounts.values.forEach { DebridCard(it) }
             }
-            Section(3, "Comptes") {
-                Body("Importez votre bibliothèque dans la Collection et suivez ce que vous regardez. L'import ne fait qu'ajouter : il ne retire rien et ne remet aucune progression à zéro.")
+            Section(3, tr("Comptes")) {
+                Body(tr("Importez votre bibliothèque dans la Collection et suivez ce que vous regardez. L'import ne fait qu'ajouter : il ne retire rien et ne remet aucune progression à zéro."))
                 AccountsSection()
             }
-            Section(4, "Lecture") { PlaybackSection() }
-            Section(5, "Apparence") {
-                Body("Sombre : le noir de salle de cinéma, l'expérience de référence. Clair : un papier chaud pour la journée.")
+            Section(4, tr("Lecture")) { PlaybackSection() }
+            Section(5, tr("Apparence")) {
+                Body(tr("Sombre : le noir de salle de cinéma, l'expérience de référence. Clair : un papier chaud pour la journée."))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     AppTheme.entries.forEach { t ->
                         Chip(t.label, Nav.theme == t) {
@@ -114,22 +115,22 @@ fun SettingsScreen() {
                     }
                 }
             }
-            Section(6, "Stockage") { StorageSection() }
-            Section(7, "Autres appareils") {
+            Section(6, tr("Stockage")) { StorageSection() }
+            Section(7, tr("Autres appareils")) {
                 if (app.veltrio.android.LocalTv.current) {
-                    Body("Plutôt que de tout reconfigurer à la télécommande : recevez les sources, comptes et la Collection d'un téléphone où Veltrio est installé, sur le même réseau.")
-                    PrimaryButton("Recevoir les réglages d'un téléphone") { Nav.pair() }
+                    Body(tr("Plutôt que de tout reconfigurer à la télécommande : recevez les sources, comptes et la Collection d'un téléphone où Veltrio est installé, sur le même réseau."))
+                    PrimaryButton(tr("Recevoir les réglages d'un téléphone")) { Nav.pair() }
                 } else {
-                    Body("Configurez une TV (Android TV, Google TV) en un geste : vos sources, comptes et votre Collection, envoyés par le réseau local.")
-                    PrimaryButton("Envoyer vers une TV") { Nav.pair() }
+                    Body(tr("Configurez une TV (Android TV, Google TV) en un geste : vos sources, comptes et votre Collection, envoyés par le réseau local."))
+                    PrimaryButton(tr("Envoyer vers une TV")) { Nav.pair() }
                 }
             }
-            Section(8, "À propos") {
+            Section(8, tr("À propos")) {
                 val context = LocalContext.current
                 val version = remember { context.packageManager.getPackageInfo(context.packageName, 0).versionName }
-                Text("Veltrio $version", style = Type.title(18), color = p.textPrimary)
-                Body("Veltrio ne fournit aucun contenu : il affiche ce que renvoient les sources que vous installez.")
-                Body("Lecture par libmpv (LGPL 2.1+, mpv.io) et FFmpeg (LGPL 2.1+).")
+                Text(tr("Veltrio %s", version), style = Type.title(18), color = p.textPrimary)
+                Body(tr("Veltrio ne fournit aucun contenu : il affiche ce que renvoient les sources que vous installez."))
+                Body(tr("Lecture par libmpv (LGPL 2.1+, mpv.io) et FFmpeg (LGPL 2.1+)."))
             }
         }
     }
@@ -182,38 +183,38 @@ private fun DebridCard(account: DebridAccount) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Box(Modifier.size(10.dp).clip(CircleShape).background(Color(provider.color)))
             Text(provider.label, style = Type.title(16), color = p.textPrimary, modifier = Modifier.weight(1f))
-            if (account.isConnected) Text("CONNECTÉ", style = Type.eyebrow(9, 0.2f), color = p.success)
+            if (account.isConnected) Text(tr("CONNECTÉ"), style = Type.eyebrow(9, 0.2f), color = p.success)
         }
         when {
             account.isConnected -> {
                 Text(
-                    listOfNotNull(account.user?.ifEmpty { null }, account.premium?.let { if (it) "Premium" else "Compte gratuit" }).joinToString(" · ").ifEmpty { "Connecté" },
+                    listOfNotNull(account.user?.ifEmpty { null }, account.premium?.let { if (it) tr("Premium") else tr("Compte gratuit") }).joinToString(" · ").ifEmpty { tr("Connecté") },
                     style = Type.mono(12), color = p.textSecondary,
                 )
-                GhostButton("Déconnecter", color = p.danger) { DebridService.disconnect(provider) }
+                GhostButton(tr("Déconnecter"), color = p.danger) { DebridService.disconnect(provider) }
             }
             account.pendingCode != null -> {
-                Body("Ouvrez ${account.pendingUrl} et saisissez ce code :")
+                Body(tr("Ouvrez %s et saisissez ce code :", account.pendingUrl))
                 Text(account.pendingCode ?: "", style = Type.mono(28, FontWeight.Bold), color = p.accentText,
                     modifier = Modifier.clickable { scope.launch { clipboard.setClipEntry(ClipData.newPlainText("code", account.pendingCode).toClipEntry()) } })
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    PrimaryButton("Ouvrir la page", icon = Icons.AutoMirrored.Filled.OpenInNew) { openUrl(context, account.pendingUrl ?: provider.keyPage) }
-                    GhostButton("Annuler") { DebridService.cancelCodeFlow() }
+                    PrimaryButton(tr("Ouvrir la page"), icon = Icons.AutoMirrored.Filled.OpenInNew) { openUrl(context, account.pendingUrl ?: provider.keyPage) }
+                    GhostButton(tr("Annuler")) { DebridService.cancelCodeFlow() }
                 }
-                Text("En attente de la validation…", style = Type.caption(12), color = p.textTertiary)
+                Text(tr("En attente de la validation…"), style = Type.caption(12), color = p.textTertiary)
             }
             provider.usesCode -> {
                 Body(provider.tagline)
-                PrimaryButton("Se connecter", loading = account.busy) { DebridService.startCodeFlow(provider) }
+                PrimaryButton(tr("Se connecter"), loading = account.busy) { DebridService.startCodeFlow(provider) }
             }
             else -> {
                 Body(provider.tagline)
-                TextInput(key, { key = it }, "Clé d'API", secret = true)
+                TextInput(key, { key = it }, tr("Clé d'API"), secret = true)
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    PrimaryButton("Connecter", enabled = key.isNotBlank(), loading = account.busy) {
+                    PrimaryButton(tr("Connecter"), enabled = key.isNotBlank(), loading = account.busy) {
                         scope.launch { DebridService.connectWithKey(provider, key) }
                     }
-                    GhostButton("Obtenir la clé", icon = Icons.AutoMirrored.Filled.OpenInNew) { openUrl(context, provider.keyPage) }
+                    GhostButton(tr("Obtenir la clé"), icon = Icons.AutoMirrored.Filled.OpenInNew) { openUrl(context, provider.keyPage) }
                 }
             }
         }
@@ -229,20 +230,20 @@ private fun PlaybackSection() {
         PlayerPrefs.update(change)
         prefs = PlayerPrefs.current
     }
-    Body("Le lecteur s'appuie sur mpv, comme sur macOS : MKV, HEVC, HDR, pistes audio et sous-titres intégrés, décodage matériel quand l'appareil le permet. Ces choix valent pour la prochaine vidéo ouverte.")
-    Picker("Langue audio préférée", PlayerPrefs.languages, prefs.audioLang) { v -> set { it.copy(audioLang = v) } }
-    Picker("Sous-titres préférés", PlayerPrefs.languages, prefs.subtitleLang) { v -> set { it.copy(subtitleLang = v) } }
-    Picker("Décodage vidéo", PlayerPrefs.decoders, prefs.hwdec) { v -> set { it.copy(hwdec = v) } }
-    Picker("Mémoire tampon (flux réseau)", PlayerPrefs.cacheSizes.map { it to "$it Mo" }, prefs.cacheMiB) { v -> set { it.copy(cacheMiB = v) } }
-    Picker("Profil de lecture", app.veltrio.shared.PlaybackProfile.entries.map { it to it.label }, prefs.profile) { v -> set { it.copy(profile = v) } }
+    Body(tr("Le lecteur s'appuie sur mpv, comme sur macOS : MKV, HEVC, HDR, pistes audio et sous-titres intégrés, décodage matériel quand l'appareil le permet. Ces choix valent pour la prochaine vidéo ouverte."))
+    Picker(tr("Langue audio préférée"), PlayerPrefs.languages, prefs.audioLang) { v -> set { it.copy(audioLang = v) } }
+    Picker(tr("Sous-titres préférés"), PlayerPrefs.languages, prefs.subtitleLang) { v -> set { it.copy(subtitleLang = v) } }
+    Picker(tr("Décodage vidéo"), PlayerPrefs.decoders, prefs.hwdec) { v -> set { it.copy(hwdec = v) } }
+    Picker(tr("Mémoire tampon (flux réseau)"), PlayerPrefs.cacheSizes.map { it to tr("%s Mo", it) }, prefs.cacheMiB) { v -> set { it.copy(cacheMiB = v) } }
+    Picker(tr("Profil de lecture"), app.veltrio.shared.PlaybackProfile.entries.map { it to it.label }, prefs.profile) { v -> set { it.copy(profile = v) } }
     Text(prefs.profile.blurb, style = Type.caption(12), color = p.textTertiary)
-    Picker("Tone mapping HDR (écran SDR)", PlayerPrefs.toneMappings, prefs.toneMapping) { v -> set { it.copy(toneMapping = v) } }
+    Picker(tr("Tone mapping HDR (écran SDR)"), PlayerPrefs.toneMappings, prefs.toneMapping) { v -> set { it.copy(toneMapping = v) } }
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Text("Enchaîner l'épisode suivant (compte à rebours de 10 s en fin d'épisode)", style = Type.body(14), color = p.textPrimary, modifier = Modifier.weight(1f))
+        Text(tr("Enchaîner l'épisode suivant (compte à rebours de 10 s en fin d'épisode)"), style = Type.body(14), color = p.textPrimary, modifier = Modifier.weight(1f))
         Switch(prefs.autoNextEpisode, { v -> set { it.copy(autoNextEpisode = v) } }, colors = SwitchDefaults.colors(checkedTrackColor = p.accent, checkedThumbColor = p.onAccent))
     }
     Text(
-        "Des sous-titres d'addons dans la langue choisie s'ajoutent quand le fichier n'en a pas et que l'audio n'est pas déjà dans cette langue. Gestes : toucher pour afficher les commandes, double toucher à gauche ou à droite pour reculer ou avancer de 10 s, au centre pour pause.",
+        tr("Des sous-titres d'addons dans la langue choisie s'ajoutent quand le fichier n'en a pas et que l'audio n'est pas déjà dans cette langue. Gestes : toucher pour afficher les commandes, double toucher à gauche ou à droite pour reculer ou avancer de 10 s, au centre pour pause."),
         style = Type.caption(12), color = p.textTertiary,
     )
 }
@@ -279,11 +280,11 @@ private fun StorageSection() {
     val scope = rememberCoroutineScope()
     var cacheSize by remember { mutableStateOf<Long?>(null) }
     LaunchedEffect(Unit) { cacheSize = withContext(Dispatchers.IO) { Core.torrentCacheSize() } }
-    Body("Addons, playlists, comptes, collection et progression sont enregistrés sur cet appareil uniquement.")
+    Body(tr("Addons, playlists, comptes, collection et progression sont enregistrés sur cet appareil uniquement."))
     DownloadsSection()
-    Body("Les torrents lus sans debrid sont téléchargés dans le cache de l'app, gardé pour reprendre plus vite. Le vider libère la place ; un torrent en cours de lecture n'est pas touché.")
+    Body(tr("Les torrents lus sans debrid sont téléchargés dans le cache de l'app, gardé pour reprendre plus vite. Le vider libère la place ; un torrent en cours de lecture n'est pas touché."))
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        GhostButton("Vider le cache des torrents") {
+        GhostButton(tr("Vider le cache des torrents")) {
             scope.launch {
                 cacheSize = withContext(Dispatchers.IO) {
                     Core.clearTorrentCache()
@@ -300,9 +301,9 @@ private fun StorageSection() {
 private fun DownloadsSection() {
     val p = VeltrioTheme.palette
     val items by DownloadManager.items.collectAsState()
-    Text("TÉLÉCHARGEMENTS", style = Type.eyebrow(9, 0.18f), color = p.textTertiary)
+    Text(tr("TÉLÉCHARGEMENTS"), style = Type.eyebrow(9, 0.18f), color = p.textTertiary)
     if (items.isEmpty()) {
-        Body("Aucun téléchargement. Appui long sur un flux, dans la fiche d'un titre, puis « Télécharger pour regarder hors ligne ».")
+        Body(tr("Aucun téléchargement. Appui long sur un flux, dans la fiche d'un titre, puis « Télécharger pour regarder hors ligne »."))
         return
     }
     items.sortedByDescending { it.createdAt }.forEach { d ->
@@ -316,17 +317,17 @@ private fun DownloadsSection() {
             Text(
                 when (d.status) {
                     DownloadStatus.Downloading -> "${(d.progress * 100).toInt()} % · ${android.text.format.Formatter.formatShortFileSize(ctx, d.bytesDownloaded)}"
-                    DownloadStatus.Paused -> "En pause · ${(d.progress * 100).toInt()} %"
-                    DownloadStatus.Completed -> "Prêt · ${android.text.format.Formatter.formatShortFileSize(ctx, d.bytesDownloaded)}"
-                    DownloadStatus.Failed -> d.error ?: "Échec"
+                    DownloadStatus.Paused -> tr("En pause · %s %%", (d.progress * 100).toInt())
+                    DownloadStatus.Completed -> tr("Prêt · %s", android.text.format.Formatter.formatShortFileSize(ctx, d.bytesDownloaded))
+                    DownloadStatus.Failed -> d.error ?: tr("Échec")
                 },
                 style = Type.mono(11), color = if (d.status == DownloadStatus.Failed) p.danger else p.textSecondary,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 when (d.status) {
-                    DownloadStatus.Downloading -> GhostButton("Pause") { DownloadManager.pause(d.id) }
-                    DownloadStatus.Paused, DownloadStatus.Failed -> GhostButton("Reprendre") { DownloadManager.resume(d.id) }
-                    DownloadStatus.Completed -> PrimaryButton("Lire") {
+                    DownloadStatus.Downloading -> GhostButton(tr("Pause")) { DownloadManager.pause(d.id) }
+                    DownloadStatus.Paused, DownloadStatus.Failed -> GhostButton(tr("Reprendre")) { DownloadManager.resume(d.id) }
+                    DownloadStatus.Completed -> PrimaryButton(tr("Lire")) {
                         Nav.play(
                             app.veltrio.shared.PlayRequest(
                                 title = d.title, subtitle = d.subtitle, url = d.localPath, contentType = d.contentType, contentId = d.contentId,
@@ -335,7 +336,7 @@ private fun DownloadsSection() {
                         )
                     }
                 }
-                GhostButton("Supprimer", color = p.danger) { DownloadManager.remove(d.id) }
+                GhostButton(tr("Supprimer"), color = p.danger) { DownloadManager.remove(d.id) }
             }
         }
     }
@@ -346,15 +347,15 @@ private fun AccountsSection() {
     StremioCard()
     val trakt by TraktAccount.state.collectAsState()
     CodeAccountCard(
-        "Trakt", 0xFFED1C24, trakt,
-        "Suit ce que vous regardez (scrobbling) et importe votre watchlist et votre historique.",
+        tr("Trakt"), 0xFFED1C24, trakt,
+        tr("Suit ce que vous regardez (scrobbling) et importe votre watchlist et votre historique."),
         onConnect = TraktAccount::startDeviceAuth, onCancel = TraktAccount::cancelFlow,
         onImport = TraktAccount::importLibrary, onDisconnect = TraktAccount::disconnect,
     )
     val simkl by SimklAccount.state.collectAsState()
     CodeAccountCard(
         "SIMKL", 0xFF0B0F10, simkl,
-        "Suit ce que vous regardez et importe vos listes (à voir, en cours, terminé).",
+        tr("Suit ce que vous regardez et importe vos listes (à voir, en cours, terminé)."),
         onConnect = SimklAccount::startPinFlow, onCancel = SimklAccount::cancelFlow,
         onImport = SimklAccount::importLibrary, onDisconnect = SimklAccount::disconnect,
     )
@@ -367,7 +368,7 @@ private fun AccountCard(name: String, color: Long, connected: Boolean, content: 
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Box(Modifier.size(10.dp).clip(CircleShape).background(Color(color)).border(1.dp, p.border, CircleShape))
             Text(name, style = Type.title(16), color = p.textPrimary, modifier = Modifier.weight(1f))
-            if (connected) Text("CONNECTÉ", style = Type.eyebrow(9, 0.2f), color = p.success)
+            if (connected) Text(tr("CONNECTÉ"), style = Type.eyebrow(9, 0.2f), color = p.success)
         }
         content()
     }
@@ -386,19 +387,19 @@ private fun StremioCard() {
     val state by StremioAccount.state.collectAsState()
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    AccountCard("Stremio", 0xFF7B5BF5, state.connected) {
+    AccountCard(tr("Stremio"), 0xFF7B5BF5, state.connected) {
         if (state.connected) {
             Text(state.user ?: "", style = Type.mono(12), color = VeltrioTheme.palette.textSecondary)
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                PrimaryButton("Importer la bibliothèque", loading = state.importing) { StremioAccount.importLibrary() }
-                GhostButton("Installer ses addons", enabled = !state.busy) { StremioAccount.installAccountAddons() }
-                GhostButton("Déconnecter", color = VeltrioTheme.palette.danger) { StremioAccount.signOut() }
+                PrimaryButton(tr("Importer la bibliothèque"), loading = state.importing) { StremioAccount.importLibrary() }
+                GhostButton(tr("Installer ses addons"), enabled = !state.busy) { StremioAccount.installAccountAddons() }
+                GhostButton(tr("Déconnecter"), color = VeltrioTheme.palette.danger) { StremioAccount.signOut() }
             }
         } else {
-            Body("Importe les titres enregistrés, ce que vous avez vu, et vos addons. Rien n'est renvoyé à Stremio.")
+            Body(tr("Importe les titres enregistrés, ce que vous avez vu, et vos addons. Rien n'est renvoyé à Stremio."))
             TextInput(email, { email = it }, "E-mail")
-            TextInput(password, { password = it }, "Mot de passe", secret = true)
-            PrimaryButton("Se connecter", enabled = email.isNotBlank() && password.isNotEmpty(), loading = state.busy) {
+            TextInput(password, { password = it }, tr("Mot de passe"), secret = true)
+            PrimaryButton(tr("Se connecter"), enabled = email.isNotBlank() && password.isNotEmpty(), loading = state.busy) {
                 StremioAccount.signIn(email.trim(), password)
             }
         }
@@ -415,25 +416,25 @@ private fun CodeAccountCard(
     val context = LocalContext.current
     AccountCard(name, color, state.connected) {
         when {
-            !state.available -> Body("Indisponible dans cette version de l'app.")
+            !state.available -> Body(tr("Indisponible dans cette version de l'app."))
             state.connected -> {
                 state.user?.let { Text(it, style = Type.mono(12), color = p.textSecondary) }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    PrimaryButton("Importer", loading = state.importing, onClick = onImport)
-                    GhostButton("Déconnecter", color = p.danger, onClick = onDisconnect)
+                    PrimaryButton(tr("Importer"), loading = state.importing, onClick = onImport)
+                    GhostButton(tr("Déconnecter"), color = p.danger, onClick = onDisconnect)
                 }
             }
             state.pendingCode != null -> {
-                Body("Ouvrez ${state.pendingUrl} et saisissez ce code :")
+                Body(tr("Ouvrez %s et saisissez ce code :", state.pendingUrl))
                 Text(state.pendingCode ?: "", style = Type.mono(28, FontWeight.Bold), color = p.accentText)
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    PrimaryButton("Ouvrir la page", icon = Icons.AutoMirrored.Filled.OpenInNew) { openUrl(context, state.pendingUrl ?: "") }
-                    GhostButton("Annuler", onClick = onCancel)
+                    PrimaryButton(tr("Ouvrir la page"), icon = Icons.AutoMirrored.Filled.OpenInNew) { openUrl(context, state.pendingUrl ?: "") }
+                    GhostButton(tr("Annuler"), onClick = onCancel)
                 }
             }
             else -> {
                 Body(blurb)
-                PrimaryButton("Se connecter", loading = state.busy, onClick = onConnect)
+                PrimaryButton(tr("Se connecter"), loading = state.busy, onClick = onConnect)
             }
         }
         AccountFooter(state)

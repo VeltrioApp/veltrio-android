@@ -1,5 +1,6 @@
 package app.veltrio.android.screens
 
+import app.veltrio.shared.i18n.tr
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -82,16 +83,16 @@ fun SourcesScreen() {
     }
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = Spacing.md, bottom = Spacing.xl)) {
-        item { PageHeader("Sources", "Sources", "Tous les catalogues, serveurs et résolveurs de flux qui alimentent l'app.") }
+        item { PageHeader(tr("Sources"), tr("Sources"), tr("Tous les catalogues, serveurs et résolveurs de flux qui alimentent l'app.")) }
         item {
             Box(Modifier.padding(start = Spacing.lg, top = Spacing.md)) {
-                PrimaryButton("Parcourir le catalogue d'addons", icon = Icons.Outlined.Extension) { app.veltrio.android.Nav.addonCatalog() }
+                PrimaryButton(tr("Parcourir le catalogue d'addons"), icon = Icons.Outlined.Extension) { app.veltrio.android.Nav.addonCatalog() }
             }
         }
         item {
             Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                SectionHeader(1, "Installer depuis une URL")
-                Text("Collez l'URL du manifest d'un addon Stremio (…/manifest.json ou un lien stremio://).", style = Type.body(13), color = p.textSecondary)
+                SectionHeader(1, tr("Installer depuis une URL"))
+                Text(tr("Collez l'URL du manifest d'un addon Stremio (…/manifest.json ou un lien stremio://)."), style = Type.body(13), color = p.textSecondary)
                 app.veltrio.android.ui.RemoteTextField(Modifier.fillMaxWidth().border(1.dp, p.borderStrong).padding(12.dp)) { fieldModifier ->
                     if (url.isEmpty()) Text("https://…/manifest.json", style = Type.mono(13), color = p.textQuaternary)
                     BasicTextField(
@@ -100,22 +101,22 @@ fun SourcesScreen() {
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done),
                     )
                 }
-                PrimaryButton(if (installing) "Installation…" else "Installer", Modifier.fillMaxWidth(), enabled = url.isNotBlank(), loading = installing) { install(url) }
+                PrimaryButton(if (installing) tr("Installation…") else tr("Installer"), Modifier.fillMaxWidth(), enabled = url.isNotBlank(), loading = installing) { install(url) }
                 if (error != null) Text(error!!, style = Type.caption(12), color = p.danger)
             }
         }
         item {
-            SectionHeader(2, "Addons installés", "${addons.size} addon${if (addons.size > 1) "s" else ""}", Modifier.padding(horizontal = Spacing.lg))
-            if (addons.isEmpty()) Text("Aucun addon pour l'instant. Commencez par Cinemeta, juste en dessous.", style = Type.body(13), color = p.textSecondary, modifier = Modifier.padding(Spacing.lg))
+            SectionHeader(2, tr("Addons installés"), tr("%s addon%s", addons.size, if (addons.size > 1) "s" else ""), Modifier.padding(horizontal = Spacing.lg))
+            if (addons.isEmpty()) Text(tr("Aucun addon pour l'instant. Commencez par Cinemeta, juste en dessous."), style = Type.body(13), color = p.textSecondary, modifier = Modifier.padding(Spacing.lg))
         }
         items(addons, key = { it.id }) { addon ->
             AddonRow(addon, enabled = addon.id !in disabled, index = addons.indexOf(addon), count = addons.size)
         }
         item {
-            SectionHeader(3, "Playlists IPTV", "${playlists.size} source${if (playlists.size > 1) "s" else ""}", Modifier.padding(start = Spacing.lg, end = Spacing.lg, top = Spacing.xl)) {
-                GhostButton("Ajouter", icon = Icons.Filled.Add) { addingPlaylist = true }
+            SectionHeader(3, tr("Playlists IPTV"), tr("%s source%s", playlists.size, if (playlists.size > 1) "s" else ""), Modifier.padding(start = Spacing.lg, end = Spacing.lg, top = Spacing.xl)) {
+                GhostButton(tr("Ajouter"), icon = Icons.Filled.Add) { addingPlaylist = true }
             }
-            if (playlists.isEmpty()) Text("Une playlist M3U ou un compte Xtream Codes alimente l'onglet Direct.", style = Type.body(13), color = p.textSecondary, modifier = Modifier.padding(Spacing.lg))
+            if (playlists.isEmpty()) Text(tr("Une playlist M3U ou un compte Xtream Codes alimente l'onglet Direct."), style = Type.body(13), color = p.textSecondary, modifier = Modifier.padding(Spacing.lg))
         }
         items(playlists, key = { "pl-" + it.id }) { pl ->
             Column {
@@ -125,7 +126,7 @@ fun SourcesScreen() {
                         Text(pl.sourceLabel, style = Type.mono(10), color = p.textTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     Box(Modifier.size(40.dp).clickable { IptvStore.remove(pl) }, contentAlignment = Alignment.Center) {
-                        Icon(Icons.Filled.Delete, "Supprimer", tint = p.danger)
+                        Icon(Icons.Filled.Delete, tr("Supprimer"), tint = p.danger)
                     }
                 }
                 Box(Modifier.padding(horizontal = Spacing.lg).fillMaxWidth().height(1.dp).background(p.border))
@@ -133,12 +134,12 @@ fun SourcesScreen() {
         }
         item {
             Column(Modifier.padding(start = Spacing.lg, end = Spacing.lg, top = Spacing.xl), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                SectionHeader(4, "Serveurs média", "Jellyfin · Emby · Plex")
-                Text("Votre bibliothèque apparaît dans la Collection, et ses copies en tête des flux d'un titre.", style = Type.body(13), color = p.textSecondary)
+                SectionHeader(4, tr("Serveurs média"), tr("Jellyfin · Emby · Plex"))
+                Text(tr("Votre bibliothèque apparaît dans la Collection, et ses copies en tête des flux d'un titre."), style = Type.body(13), color = p.textSecondary)
                 app.veltrio.shared.MediaServers.all.forEach { MediaServerCard(it) }
             }
         }
-        item { SectionHeader(5, "Suggérés", modifier = Modifier.padding(start = Spacing.lg, end = Spacing.lg, top = Spacing.xl)) }
+        item { SectionHeader(5, tr("Suggérés"), modifier = Modifier.padding(start = Spacing.lg, end = Spacing.lg, top = Spacing.xl)) }
         items(Core.suggestedAddons) { s ->
             val installed = Core.isInstalled(s.url)
             Row(Modifier.fillMaxWidth().padding(horizontal = Spacing.lg, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -146,8 +147,8 @@ fun SourcesScreen() {
                     Text(s.name, style = Type.title(16), color = p.textPrimary)
                     Text(s.blurb, style = Type.caption(12), color = p.textSecondary)
                 }
-                if (installed) Text("INSTALLÉ", style = Type.eyebrow(9, 0.2f), color = p.success)
-                else GhostButton("Ajouter", enabled = !installing) { install(s.url) }
+                if (installed) Text(tr("INSTALLÉ"), style = Type.eyebrow(9, 0.2f), color = p.success)
+                else GhostButton(tr("Ajouter"), enabled = !installing) { install(s.url) }
             }
         }
     }
@@ -175,13 +176,13 @@ private fun AddonRow(addon: AddonInfo, enabled: Boolean, index: Int, count: Int)
                         colors = SwitchDefaults.colors(checkedTrackColor = p.accent, checkedThumbColor = p.onAccent),
                     )
                     Box(Modifier.size(40.dp).clickable(enabled = index > 0) { Core.move(addon, -1) }, contentAlignment = Alignment.Center) {
-                        Icon(Icons.Filled.KeyboardArrowUp, "Monter", tint = if (index > 0) p.textSecondary else p.textQuaternary)
+                        Icon(Icons.Filled.KeyboardArrowUp, tr("Monter"), tint = if (index > 0) p.textSecondary else p.textQuaternary)
                     }
                     Box(Modifier.size(40.dp).clickable(enabled = index < count - 1) { Core.move(addon, 1) }, contentAlignment = Alignment.Center) {
-                        Icon(Icons.Filled.KeyboardArrowDown, "Descendre", tint = if (index < count - 1) p.textSecondary else p.textQuaternary)
+                        Icon(Icons.Filled.KeyboardArrowDown, tr("Descendre"), tint = if (index < count - 1) p.textSecondary else p.textQuaternary)
                     }
                     Box(Modifier.size(40.dp).clickable { Core.removeAddon(addon) }, contentAlignment = Alignment.Center) {
-                        Icon(Icons.Filled.Delete, "Supprimer", tint = p.danger)
+                        Icon(Icons.Filled.Delete, tr("Supprimer"), tint = p.danger)
                     }
                 }
             }

@@ -1,5 +1,6 @@
 package app.veltrio.shared
 
+import app.veltrio.shared.i18n.tr
 import android.util.Log
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -25,10 +26,10 @@ enum class DebridProvider(
     val tagline: String,
     val keyPage: String,
 ) {
-    RealDebrid("Real-Debrid", "RD", 0xFF6CAD3E, true, "Le plus répandu. Connexion par code, sans mot de passe.", "https://real-debrid.com/device"),
-    AllDebrid("AllDebrid", "AD", 0xFF16A34A, true, "Connexion par code PIN. Lit aussi ce qui n'est pas encore en cache.", "https://alldebrid.com/pin/"),
-    Premiumize("Premiumize", "PM", 0xFFFFA200, false, "Clé d'API à copier depuis la page de votre compte.", "https://www.premiumize.me/account"),
-    TorBox("TorBox", "TB", 0xFF4EA2FF, false, "Clé d'API à copier depuis les réglages de votre compte.", "https://torbox.app/settings"),
+    RealDebrid(tr("Real-Debrid"), "RD", 0xFF6CAD3E, true, tr("Le plus répandu. Connexion par code, sans mot de passe."), "https://real-debrid.com/device"),
+    AllDebrid(tr("AllDebrid"), "AD", 0xFF16A34A, true, tr("Connexion par code PIN. Lit aussi ce qui n'est pas encore en cache."), "https://alldebrid.com/pin/"),
+    Premiumize(tr("Premiumize"), "PM", 0xFFFFA200, false, tr("Clé d'API à copier depuis la page de votre compte."), "https://www.premiumize.me/account"),
+    TorBox(tr("TorBox"), "TB", 0xFF4EA2FF, false, tr("Clé d'API à copier depuis les réglages de votre compte."), "https://torbox.app/settings"),
 }
 
 /** One provider's state, as the Settings cards show it. */
@@ -115,7 +116,7 @@ object DebridService {
             update(p) { it.copy(key = key) }
             refreshUser(p)
         } catch (e: Exception) {
-            update(p) { it.copy(key = null, error = "${p.label} a refusé cette clé. ${e.message}") }
+            update(p) { it.copy(key = null, error = tr("%s a refusé cette clé. %s", p.label, e.message)) }
         } finally {
             update(p) { it.copy(busy = false) }
         }
@@ -146,7 +147,7 @@ object DebridService {
                         runCatching { allDebrid.pollPin(pin.pin, pin.checkToken) }.getOrNull()?.let { connected(p, it); return@launch }
                     }
                 }
-                update(p) { it.copy(error = "Le code a expiré. Recommencez.") }
+                update(p) { it.copy(error = tr("Le code a expiré. Recommencez.")) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

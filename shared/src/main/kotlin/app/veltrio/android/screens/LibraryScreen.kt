@@ -1,5 +1,6 @@
 package app.veltrio.android.screens
 
+import app.veltrio.shared.i18n.tr
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -44,8 +45,8 @@ import app.veltrio.shared.ui.Spacing
 import app.veltrio.shared.ui.Type
 import app.veltrio.shared.ui.VeltrioTheme
 
-private val filters = listOf("all" to "Tout", "progress" to "En cours", "saved" to "Enregistrés", "watched" to "Vus")
-private val types = listOf("all" to "Tous les types", "movie" to "Films", "series" to "Séries")
+private val filters = listOf("all" to tr("Tout"), "progress" to tr("En cours"), "saved" to tr("Enregistrés"), "watched" to tr("Vus"))
+private val types = listOf("all" to tr("Tous les types"), "movie" to tr("Films"), "series" to tr("Séries"))
 
 /** The Collection: saved titles and everything started, with the macOS
  *  filters; a long press marks watched or removes. (Media server tabs come
@@ -58,7 +59,7 @@ fun LibraryScreen() {
     Column(Modifier.fillMaxSize()) {
         if (servers.isNotEmpty()) {
             Row(Modifier.horizontalScroll(rememberScrollState()).padding(start = Spacing.lg, end = Spacing.lg, top = Spacing.md), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Chip("Enregistrés", kind == null) { Nav.libraryServer = null }
+                Chip(tr("Enregistrés"), kind == null) { Nav.libraryServer = null }
                 servers.forEach { s -> Chip(s.name, s.kind == kind) { Nav.libraryServer = s.kind } }
             }
         }
@@ -114,10 +115,10 @@ private fun ServerLibrary(server: MediaServer) {
         when {
             sections == null || (items.isEmpty() && loading) -> item(span = { GridItemSpan(maxLineSpan) }) { LoadingRow() }
             sections!!.isEmpty() -> item(span = { GridItemSpan(maxLineSpan) }) {
-                Text("Ce serveur n'a pas de bibliothèque de films ou de séries, ou ne répond pas.", style = Type.body(14), color = p.textSecondary)
+                Text(tr("Ce serveur n'a pas de bibliothèque de films ou de séries, ou ne répond pas."), style = Type.body(14), color = p.textSecondary)
             }
             items.isEmpty() && total == 0 -> item(span = { GridItemSpan(maxLineSpan) }) {
-                Text("Cette bibliothèque ne contient aucun film ni aucune série.", style = Type.body(14), color = p.textSecondary)
+                Text(tr("Cette bibliothèque ne contient aucun film ni aucune série."), style = Type.body(14), color = p.textSecondary)
             }
         }
         items(items, key = { it.id }) { item -> PosterCard(item.title, item.posterUrl, item.subtitle, width = 200.dp) { openServerItem(server, item) } }
@@ -150,7 +151,7 @@ private fun SavedLibrary() {
     ) {
         item(span = { GridItemSpan(maxLineSpan) }) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                PageHeader("N° ${all.size} dans votre collection", "Collection", "${WatchStore.continueWatching.size} en cours · choisis par vous", inset = 0.dp)
+                PageHeader(tr("N° %s dans votre collection", all.size), tr("Collection"), tr("%s en cours · choisis par vous", WatchStore.continueWatching.size), inset = 0.dp)
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     filters.forEach { (key, label) -> Chip(label, key == filter) { filter = key } }
                 }
@@ -162,10 +163,10 @@ private fun SavedLibrary() {
         if (shown.isEmpty()) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Column(Modifier.padding(top = 40.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(if (all.isEmpty()) "Rien d'enregistré,\npour l'instant." else "Rien ne correspond.", style = Type.displaySerif(30), color = p.textPrimary)
+                    Text(if (all.isEmpty()) tr("Rien d'enregistré,\npour l'instant.") else tr("Rien ne correspond."), style = Type.displaySerif(30), color = p.textPrimary)
                     Text(
-                        if (all.isEmpty()) "Enregistrez un titre depuis sa fiche : il arrive ici, avec tout ce que vous avez commencé à regarder."
-                        else "Aucun titre ne correspond à ces filtres.",
+                        if (all.isEmpty()) tr("Enregistrez un titre depuis sa fiche : il arrive ici, avec tout ce que vous avez commencé à regarder.")
+                        else tr("Aucun titre ne correspond à ces filtres."),
                         style = Type.body(14), color = p.textSecondary,
                     )
                 }
@@ -185,15 +186,15 @@ private fun LibraryCard(entry: WatchEntry) {
             onLongClick = { menu = true },
         ) { openEntry(entry) }
         DropdownMenu(menu, { menu = false }) {
-            DropdownMenuItem({ Text(if (entry.watched) "Marquer comme non vu" else "Marquer comme vu") }, {
+            DropdownMenuItem({ Text(if (entry.watched) tr("Marquer comme non vu") else tr("Marquer comme vu")) }, {
                 WatchStore.markWatched(entry.type, entry.contentId, !entry.watched)
                 menu = false
             })
-            if (entry.inLibrary) DropdownMenuItem({ Text("Retirer de la collection") }, {
+            if (entry.inLibrary) DropdownMenuItem({ Text(tr("Retirer de la collection")) }, {
                 WatchStore.toggleLibrary(entry.type, entry.contentId, entry.name, null, null, null)
                 menu = false
             })
-            DropdownMenuItem({ Text("Supprimer de l'historique") }, {
+            DropdownMenuItem({ Text(tr("Supprimer de l'historique")) }, {
                 WatchStore.remove(entry.type, entry.contentId)
                 menu = false
             })

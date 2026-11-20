@@ -1,5 +1,6 @@
 package app.veltrio.shared
 
+import app.veltrio.shared.i18n.tr
 import android.content.Context
 import android.content.Intent
 import android.util.Log
@@ -66,7 +67,7 @@ object DownloadManager {
 
     internal fun init(context: Context) {
         appContext = context.applicationContext
-        folder = File(context.getExternalFilesDir(null) ?: context.filesDir, "Downloads")
+        folder = File(context.getExternalFilesDir(null) ?: context.filesDir, tr("Downloads"))
         // Nothing runs at launch: an interrupted download waits to be resumed.
         _items.value = Storage.load(FILE, ListSerializer(DownloadItem.serializer()), emptyList())
             .map { if (it.status == DownloadStatus.Downloading) it.copy(status = DownloadStatus.Paused) else it }
@@ -156,7 +157,7 @@ object DownloadManager {
             var have = if (target.exists()) target.length() else 0L
             val request = Request.Builder().url(item.sourceUrl).apply { if (have > 0) header("Range", "bytes=$have-") }.build()
             client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) throw IllegalStateException("Le serveur a répondu ${response.code}.")
+                if (!response.isSuccessful) throw IllegalStateException(tr("Le serveur a répondu %s.", response.code))
                 // A server that ignores the range sends the whole file again.
                 val resuming = have > 0 && response.code == 206
                 if (!resuming) have = 0
@@ -184,7 +185,7 @@ object DownloadManager {
                 stopEngine(id)
             }
         } catch (e: Exception) {
-            if (running.containsKey(id)) fail(id, e.message ?: "Erreur")
+            if (running.containsKey(id)) fail(id, e.message ?: tr("Erreur"))
         } finally {
             running.remove(id)
         }

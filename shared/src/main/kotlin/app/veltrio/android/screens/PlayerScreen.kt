@@ -1,5 +1,6 @@
 package app.veltrio.android.screens
 
+import app.veltrio.shared.i18n.tr
 import android.app.Activity
 import android.content.pm.ActivityInfo
 import android.view.SurfaceView
@@ -125,7 +126,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private val speeds = listOf(0.5, 0.75, 1.0, 1.25, 1.5, 2.0)
-private val aspects = listOf("fit" to "Adapter", "fill" to "Remplir l'écran", "stretch" to "Étirer")
+private val aspects = listOf("fit" to tr("Adapter"), "fill" to tr("Remplir l'écran"), "stretch" to tr("Étirer"))
 
 private enum class Panel { Channels, Audio, Subtitles, Speed, Aspect, Profile, Cast, Info }
 
@@ -328,15 +329,15 @@ fun PlayerScreen(request: PlayRequest) {
             )
         }
 
-        val error = resolveError ?: if (state.failed) "Le flux n'a pas pu être lu. Il est peut-être hors ligne, ou dans un format que ce lecteur ne prend pas en charge." else null
+        val error = resolveError ?: if (state.failed) tr("Le flux n'a pas pu être lu. Il est peut-être hors ligne, ou dans un format que ce lecteur ne prend pas en charge.") else null
         when {
             error != null -> ErrorState(error, onRetry = { attempt++ }, onBack = { Nav.back() })
             resolving || !state.loaded || state.buffering -> Loading(
                 when {
-                    resolving && request.stream?.infoHash != null && request.stream?.cachedOn == null -> "Connexion aux pairs…"
-                    resolving -> "Résolution du flux…"
-                    !state.loaded -> "Ouverture…"
-                    else -> "Mise en mémoire tampon…"
+                    resolving && request.stream?.infoHash != null && request.stream?.cachedOn == null -> tr("Connexion aux pairs…")
+                    resolving -> tr("Résolution du flux…")
+                    !state.loaded -> tr("Ouverture…")
+                    else -> tr("Mise en mémoire tampon…")
                 },
                 request.title,
             )
@@ -362,14 +363,14 @@ fun PlayerScreen(request: PlayRequest) {
         panel?.let { current ->
             SidePanel(
                 when (current) {
-                    Panel.Channels -> "Chaînes"
-                    Panel.Audio -> "Audio"
-                    Panel.Subtitles -> "Sous-titres"
-                    Panel.Speed -> "Vitesse"
-                    Panel.Aspect -> "Format de l'image"
-                    Panel.Profile -> "Profil de lecture"
-                    Panel.Cast -> "Caster"
-                    Panel.Info -> "Infos média"
+                    Panel.Channels -> tr("Chaînes")
+                    Panel.Audio -> tr("Audio")
+                    Panel.Subtitles -> tr("Sous-titres")
+                    Panel.Speed -> tr("Vitesse")
+                    Panel.Aspect -> tr("Format de l'image")
+                    Panel.Profile -> tr("Profil de lecture")
+                    Panel.Cast -> tr("Caster")
+                    Panel.Info -> tr("Infos média")
                 },
                 onClose = { panel = null },
                 Modifier.align(Alignment.CenterEnd),
@@ -380,9 +381,9 @@ fun PlayerScreen(request: PlayRequest) {
                         Option(t.label, t.codec?.uppercase(), t.id == state.audioId) { player.selectAudio(t.id) }
                     }
                     Panel.Subtitles -> {
-                        Option("Désactivés", null, state.subtitleId == null) { player.selectSubtitle(null) }
+                        Option(tr("Désactivés"), null, state.subtitleId == null) { player.selectSubtitle(null) }
                         state.subtitles.forEach { t ->
-                            Option(t.label, if (t.external) "EXTERNE" else t.codec?.uppercase(), t.id == state.subtitleId) { player.selectSubtitle(t.id) }
+                            Option(t.label, if (t.external) tr("EXTERNE") else t.codec?.uppercase(), t.id == state.subtitleId) { player.selectSubtitle(t.id) }
                         }
                         addonSubtitles.filter { it.url !in addedSubtitles }.forEach { sub ->
                             Option(sub.language, sub.addonName.uppercase(), false) {
@@ -391,16 +392,16 @@ fun PlayerScreen(request: PlayRequest) {
                             }
                         }
                         // Out of sync: shift them, as macOS's Z / X.
-                        Text("DÉCALAGE", style = Type.eyebrow(9, 0.18f), color = Color.White.copy(alpha = 0.5f), modifier = Modifier.padding(start = 20.dp, top = 14.dp))
+                        Text(tr("DÉCALAGE"), style = Type.eyebrow(9, 0.18f), color = Color.White.copy(alpha = 0.5f), modifier = Modifier.padding(start = 20.dp, top = 14.dp))
                         Row(Modifier.padding(horizontal = 20.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             Pill("−0,1 s", Icons.Filled.Remove, primary = false) { player.setSubDelay(state.subDelay - 0.1) }
                             Text("%+.1f s".format(state.subDelay), style = Type.mono(13, FontWeight.Bold), color = Color.White)
                             Pill("+0,1 s", Icons.Filled.Add, primary = false) { player.setSubDelay(state.subDelay + 0.1) }
                         }
-                        if (kotlin.math.abs(state.subDelay) > 0.001) Option("Remettre à zéro", null, false) { player.setSubDelay(0.0) }
+                        if (kotlin.math.abs(state.subDelay) > 0.001) Option(tr("Remettre à zéro"), null, false) { player.setSubDelay(0.0) }
                     }
                     Panel.Speed -> speeds.forEach { s ->
-                        Option(if (s == 1.0) "Normale" else "×${s.toString().trimEnd('0').trimEnd('.')}", null, kotlin.math.abs(state.speed - s) < 0.01) { player.setSpeed(s) }
+                        Option(if (s == 1.0) tr("Normale") else "×${s.toString().trimEnd('0').trimEnd('.')}", null, kotlin.math.abs(state.speed - s) < 0.01) { player.setSpeed(s) }
                     }
                     Panel.Profile -> {
                         var prefs by remember { mutableStateOf(PlayerPrefs.current) }
@@ -412,7 +413,7 @@ fun PlayerScreen(request: PlayRequest) {
                             }
                         }
                         Text(prefs.profile.blurb, style = Type.caption(11), color = Color.White.copy(alpha = 0.55f), modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp))
-                        Text("TONE MAPPING HDR", style = Type.eyebrow(9, 0.18f), color = Color.White.copy(alpha = 0.5f), modifier = Modifier.padding(start = 20.dp, top = 12.dp))
+                        Text(tr("TONE MAPPING HDR"), style = Type.eyebrow(9, 0.18f), color = Color.White.copy(alpha = 0.5f), modifier = Modifier.padding(start = 20.dp, top = 12.dp))
                         PlayerPrefs.toneMappings.forEach { (key, label) ->
                             Option(label, null, key == prefs.toneMapping) {
                                 PlayerPrefs.update { it.copy(toneMapping = key) }
@@ -431,12 +432,12 @@ fun PlayerScreen(request: PlayRequest) {
                         panel = null
                     }
                     Panel.Info -> {
-                        InfoLine("Résolution", if (state.width > 0) "${state.width} × ${state.height}" else "—")
-                        InfoLine("Vidéo", state.videoCodec ?: "—")
-                        InfoLine("Décodage", state.hwdec?.takeIf { it != "no" && it.isNotEmpty() }?.let { "Matériel ($it)" } ?: "Logiciel")
-                        InfoLine("Pistes audio", "${state.audio.size}")
-                        InfoLine("Sous-titres", "${state.subtitles.size}")
-                        request.stream?.let { InfoLine("Source", it.addonName) }
+                        InfoLine(tr("Résolution"), if (state.width > 0) "${state.width} × ${state.height}" else "—")
+                        InfoLine(tr("Vidéo"), state.videoCodec ?: "—")
+                        InfoLine(tr("Décodage"), state.hwdec?.takeIf { it != "no" && it.isNotEmpty() }?.let { tr("Matériel (%s)", it) } ?: tr("Logiciel"))
+                        InfoLine(tr("Pistes audio"), "${state.audio.size}")
+                        InfoLine(tr("Sous-titres"), "${state.subtitles.size}")
+                        request.stream?.let { InfoLine(tr("Source"), it.addonName) }
                     }
                 }
             }
@@ -452,7 +453,7 @@ fun PlayerScreen(request: PlayRequest) {
         state.introEnd?.let { end ->
             if (!endOverlay && panel == null && cast.state == ChromecastService.CastState.Idle) {
                 Box(Modifier.align(Alignment.BottomEnd).padding(end = 28.dp, bottom = 110.dp)) {
-                    Pill("Passer l'intro", Icons.Filled.SkipNext, primary = true) { player.seek(end) }
+                    Pill(tr("Passer l'intro"), Icons.Filled.SkipNext, primary = true) { player.seek(end) }
                 }
             }
         }
@@ -486,7 +487,7 @@ private fun TopBar(request: PlayRequest, state: PlayerState, modifier: Modifier,
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Icon(Icons.Filled.ChevronLeft, null, Modifier.size(18.dp), tint = Color.White)
-            Text("Retour", style = Type.label(13, FontWeight.SemiBold), color = Color.White)
+            Text(tr("Retour"), style = Type.label(13, FontWeight.SemiBold), color = Color.White)
         }
         if (request.isLive) LiveBadge()
         Column(Modifier.weight(1f)) {
@@ -496,15 +497,15 @@ private fun TopBar(request: PlayRequest, state: PlayerState, modifier: Modifier,
                 Text(it, style = Type.label(11, FontWeight.Medium), color = Color.White.copy(alpha = 0.7f), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
-        if (request.channel != null && request.playlist != null && request.isLive) GlassIcon(Icons.AutoMirrored.Filled.List, "Chaînes") { onPanel(Panel.Channels) }
-        if (state.audio.size > 1) GlassIcon(Icons.Filled.Audiotrack, "Audio") { onPanel(Panel.Audio) }
-        GlassIcon(Icons.Filled.Subtitles, "Sous-titres") { onPanel(Panel.Subtitles) }
-        if (!request.isLive) GlassIcon(Icons.Filled.Speed, "Vitesse") { onPanel(Panel.Speed) }
-        GlassIcon(Icons.Filled.AspectRatio, "Format") { onPanel(Panel.Aspect) }
-        GlassIcon(Icons.Filled.Tune, "Profil de lecture") { onPanel(Panel.Profile) }
-        if (request.isLive && request.channel?.hasCatchup == true && request.playlist?.xtream != null) GlassIcon(Icons.Filled.History, "Revoir") { onReplay() }
-        GlassIcon(Icons.Filled.Cast, "Caster") { onPanel(Panel.Cast) }
-        GlassIcon(Icons.Outlined.Info, "Infos média") { onPanel(Panel.Info) }
+        if (request.channel != null && request.playlist != null && request.isLive) GlassIcon(Icons.AutoMirrored.Filled.List, tr("Chaînes")) { onPanel(Panel.Channels) }
+        if (state.audio.size > 1) GlassIcon(Icons.Filled.Audiotrack, tr("Audio")) { onPanel(Panel.Audio) }
+        GlassIcon(Icons.Filled.Subtitles, tr("Sous-titres")) { onPanel(Panel.Subtitles) }
+        if (!request.isLive) GlassIcon(Icons.Filled.Speed, tr("Vitesse")) { onPanel(Panel.Speed) }
+        GlassIcon(Icons.Filled.AspectRatio, tr("Format")) { onPanel(Panel.Aspect) }
+        GlassIcon(Icons.Filled.Tune, tr("Profil de lecture")) { onPanel(Panel.Profile) }
+        if (request.isLive && request.channel?.hasCatchup == true && request.playlist?.xtream != null) GlassIcon(Icons.Filled.History, tr("Revoir")) { onReplay() }
+        GlassIcon(Icons.Filled.Cast, tr("Caster")) { onPanel(Panel.Cast) }
+        GlassIcon(Icons.Outlined.Info, tr("Infos média")) { onPanel(Panel.Info) }
     }
 }
 
@@ -549,14 +550,14 @@ private fun BottomBar(
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            if (!request.isLive) ControlButton(Icons.Filled.Replay10, "Reculer de 10 s") { onSkip(-10.0) }
+            if (!request.isLive) ControlButton(Icons.Filled.Replay10, tr("Reculer de 10 s")) { onSkip(-10.0) }
             Box(Modifier.size(52.dp).clip(CircleShape).background(Color.White).focusRequester(playFocus).clickable(onClick = onToggle), contentAlignment = Alignment.Center) {
-                Icon(if (state.paused) Icons.Filled.PlayArrow else Icons.Filled.Pause, if (state.paused) "Lecture" else "Pause", Modifier.size(26.dp), tint = Color.Black)
+                Icon(if (state.paused) Icons.Filled.PlayArrow else Icons.Filled.Pause, if (state.paused) tr("Lire") else tr("Pause"), Modifier.size(26.dp), tint = Color.Black)
             }
-            if (!request.isLive) ControlButton(Icons.Filled.Forward10, "Avancer de 10 s") { onSkip(10.0) }
+            if (!request.isLive) ControlButton(Icons.Filled.Forward10, tr("Avancer de 10 s")) { onSkip(10.0) }
             Spacer(Modifier.weight(1f))
-            if (request.isLive) Text(if (state.buffering) "Mise en mémoire tampon…" else "En direct", style = Type.label(12, FontWeight.SemiBold), color = Color.White.copy(alpha = 0.9f))
-            else request.nextLabel?.let { Text("Ensuite · $it", style = Type.label(11, FontWeight.Medium), color = Color.White.copy(alpha = 0.6f), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 260.dp)) }
+            if (request.isLive) Text(if (state.buffering) tr("Mise en mémoire tampon…") else tr("En direct"), style = Type.label(12, FontWeight.SemiBold), color = Color.White.copy(alpha = 0.9f))
+            else request.nextLabel?.let { Text(tr("Ensuite · %s", it), style = Type.label(11, FontWeight.Medium), color = Color.White.copy(alpha = 0.6f), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 260.dp)) }
         }
     }
 }
@@ -615,7 +616,7 @@ private fun SidePanel(title: String, onClose: () -> Unit, modifier: Modifier, co
     ) {
         Row(Modifier.padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(title.uppercase(), style = Type.eyebrow(10, 0.24f), color = p.accentText, modifier = Modifier.weight(1f))
-            Icon(Icons.Filled.Close, "Fermer", Modifier.size(22.dp).clickable(onClick = onClose), tint = Color.White)
+            Icon(Icons.Filled.Close, tr("Fermer"), Modifier.size(22.dp).clickable(onClick = onClose), tint = Color.White)
         }
         Spacer(Modifier.height(10.dp))
         LazyColumn { item { Column { content() } } }
@@ -660,11 +661,11 @@ private fun ErrorState(message: String, onRetry: () -> Unit, onBack: () -> Unit)
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterVertically),
     ) {
         Icon(Icons.Filled.Warning, null, Modifier.size(42.dp), tint = Color(0xFFFFD60A))
-        Text("Impossible d'ouvrir ce flux", style = Type.title(18), color = Color.White)
+        Text(tr("Impossible d'ouvrir ce flux"), style = Type.title(18), color = Color.White)
         Text(message, style = Type.label(12), color = Color.White.copy(alpha = 0.8f), textAlign = TextAlign.Center, modifier = Modifier.widthIn(max = 420.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            FrameButton("Réessayer", Icons.Filled.Refresh, p.accent, filled = true, onClick = onRetry)
-            FrameButton("Retour", null, Color.White, onClick = onBack)
+            FrameButton(tr("Réessayer"), Icons.Filled.Refresh, p.accent, filled = true, onClick = onRetry)
+            FrameButton(tr("Retour"), null, Color.White, onClick = onBack)
         }
     }
 }
@@ -702,7 +703,7 @@ private fun EndOfEpisode(request: PlayRequest, onStay: () -> Unit, onEpisodes: (
                 error = Core.humanize(e); null
             }
             if (next != null) onNext(next) else {
-                error = error ?: "Aucun flux trouvé pour l'épisode suivant."
+                error = error ?: tr("Aucun flux trouvé pour l'épisode suivant.")
                 finding = false
             }
         }
@@ -724,21 +725,21 @@ private fun EndOfEpisode(request: PlayRequest, onStay: () -> Unit, onEpisodes: (
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterVertically),
     ) {
         Icon(Icons.Filled.CheckCircle, null, Modifier.size(52.dp), tint = p.accent)
-        Text("Épisode terminé", style = Type.displaySerif(28), color = Color.White)
+        Text(tr("Épisode terminé"), style = Type.displaySerif(28), color = Color.White)
         request.nextLabel?.let { Text(it, style = Type.label(14, FontWeight.SemiBold), color = Color.White.copy(alpha = 0.9f), textAlign = TextAlign.Center) }
         Text(
             error ?: when {
-                finding -> "Recherche du flux…"
+                finding -> tr("Recherche du flux…")
                 !auto -> ""
-                hasNext -> "Épisode suivant dans ${countdown.coerceAtLeast(0)} s"
-                else -> "Retour aux épisodes dans ${countdown.coerceAtLeast(0)} s"
+                hasNext -> tr("Épisode suivant dans %s s", countdown.coerceAtLeast(0))
+                else -> tr("Retour aux épisodes dans %s s", countdown.coerceAtLeast(0))
             },
             style = Type.label(13, FontWeight.SemiBold), color = Color.White.copy(alpha = 0.7f),
         )
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 4.dp)) {
-            Pill("Rester", Icons.Filled.Stop, primary = false, onClick = onStay)
-            Pill("Épisodes", Icons.AutoMirrored.Filled.List, primary = !hasNext, onClick = onEpisodes)
-            if (hasNext) Pill("Épisode suivant", Icons.Filled.SkipNext, primary = true, enabled = !finding, onClick = ::playNext)
+            Pill(tr("Rester"), Icons.Filled.Stop, primary = false, onClick = onStay)
+            Pill(tr("Épisodes"), Icons.AutoMirrored.Filled.List, primary = !hasNext, onClick = onEpisodes)
+            if (hasNext) Pill(tr("Épisode suivant"), Icons.Filled.SkipNext, primary = true, enabled = !finding, onClick = ::playNext)
         }
     }
 }
@@ -781,7 +782,7 @@ private fun ChannelList(request: PlayRequest) {
                 Modifier.fillMaxWidth().border(1.dp, Color.White.copy(alpha = 0.25f)).clickable { open = true }.padding(horizontal = 12.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(group.ifEmpty { "Sans groupe" }, style = Type.label(13, FontWeight.SemiBold), color = Color.White, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(group.ifEmpty { tr("Sans groupe") }, style = Type.label(13, FontWeight.SemiBold), color = Color.White, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Icon(Icons.Filled.ArrowDropDown, null, tint = Color.White)
             }
             DropdownMenu(open, { open = false }) {
@@ -793,7 +794,7 @@ private fun ChannelList(request: PlayRequest) {
                 }
             }
         }
-        Text("EN COURS · ${playing.numberLabel} ${playing.name}".trim(), style = Type.mono(10, FontWeight.SemiBold), color = p.accent, modifier = Modifier.padding(top = 6.dp))
+        Text(tr("EN COURS · %s %s", playing.numberLabel, playing.name).trim(), style = Type.mono(10, FontWeight.SemiBold), color = p.accent, modifier = Modifier.padding(top = 6.dp))
     }
     channels.filter { it.group == group }.forEach { c ->
         val current = c.id == playing.id
@@ -807,7 +808,7 @@ private fun ChannelList(request: PlayRequest) {
                 Text(c.name, style = Type.label(13, if (current) FontWeight.Bold else FontWeight.Normal), color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 EpgStore.current(c)?.let { Text(it.title, style = Type.caption(11), color = Color.White.copy(alpha = 0.55f), maxLines = 1, overflow = TextOverflow.Ellipsis) }
             }
-            if (current) Icon(Icons.Filled.PlayArrow, "En cours", Modifier.size(14.dp), tint = p.accent)
+            if (current) Icon(Icons.Filled.PlayArrow, tr("En cours"), Modifier.size(14.dp), tint = p.accent)
         }
     }
 }
@@ -819,12 +820,12 @@ private fun CastList(url: String?, state: ChromecastService.State, onPick: (Chro
     val p = VeltrioTheme.palette
     when {
         !ChromecastService.canCast(url) -> Text(
-            "Ce flux est lu depuis cet appareil (torrent) et ne peut pas être envoyé à un Chromecast. Un service debrid le rend castable.",
+            tr("Ce flux est lu depuis cet appareil (torrent) et ne peut pas être envoyé à un Chromecast. Un service debrid le rend castable."),
             style = Type.label(13), color = Color.White.copy(alpha = 0.75f), modifier = Modifier.padding(20.dp),
         )
         devices.isEmpty() -> Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
-            Text("Recherche de Chromecasts sur le réseau…", style = Type.label(13), color = Color.White.copy(alpha = 0.75f))
+            Text(tr("Recherche de Chromecasts sur le réseau…"), style = Type.label(13), color = Color.White.copy(alpha = 0.75f))
         }
         else -> devices.forEach { d ->
             Option(d.name, d.host, state.deviceName == d.name && state.isCasting) { onPick(d) }
@@ -843,12 +844,12 @@ private fun CastOverlay(state: ChromecastService.State, onStop: () -> Unit) {
         Icon(Icons.Filled.Cast, null, Modifier.size(46.dp), tint = p.accent)
         Text(
             when (state.state) {
-                ChromecastService.CastState.Connecting -> "Connexion à ${state.deviceName}…"
-                ChromecastService.CastState.Casting -> "Lecture sur ${state.deviceName}"
-                else -> state.error ?: "Échec du cast"
+                ChromecastService.CastState.Connecting -> tr("Connexion à %s…", state.deviceName)
+                ChromecastService.CastState.Casting -> tr("Lecture sur %s", state.deviceName)
+                else -> state.error ?: tr("Échec du cast")
             },
             style = Type.displaySerif(24), color = Color.White, textAlign = TextAlign.Center,
         )
-        Pill(if (state.state == ChromecastService.CastState.Failed) "Fermer" else "Arrêter", Icons.Filled.Stop, primary = true, onClick = onStop)
+        Pill(if (state.state == ChromecastService.CastState.Failed) tr("Fermer") else tr("Arrêter"), Icons.Filled.Stop, primary = true, onClick = onStop)
     }
 }

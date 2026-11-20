@@ -1,5 +1,6 @@
 package app.veltrio.shared
 
+import app.veltrio.shared.i18n.tr
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -47,7 +48,7 @@ object AddonCatalogService {
 
     suspend fun official(): List<CatalogAddon> {
         official?.let { return it }
-        return Http.json(get("https://api.strem.io/addonscollection.json"), "Stremio").items
+        return Http.json(get("https://api.strem.io/addonscollection.json"), tr("Stremio")).items
             .mapNotNull { e -> e["manifest"]?.let { fromManifest(it, "", e.str("transportUrl")) } }
             .also { official = it }
     }

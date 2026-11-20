@@ -1,5 +1,6 @@
 package app.veltrio.android.screens
 
+import app.veltrio.shared.i18n.tr
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -55,7 +56,7 @@ fun PairScreen() {
     val p = VeltrioTheme.palette
     Column(Modifier.fillMaxSize().background(p.background).statusBarsPadding().verticalScroll(rememberScrollState())) {
         Box(Modifier.padding(Spacing.md).size(40.dp).clickable { Nav.back() }, contentAlignment = Alignment.Center) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Retour", tint = p.textPrimary)
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Retour"), tint = p.textPrimary)
         }
         if (LocalTv.current) Receive() else Send()
     }
@@ -71,26 +72,26 @@ private fun Receive() {
         onDispose { receiver.stop() }
     }
     val state by receiver.state.collectAsState()
-    PageHeader("Autres appareils", "Recevoir les réglages", "Sur votre téléphone, ouvrez Veltrio, Réglages, « Envoyer vers une TV », choisissez cette TV (ou tapez son adresse) et ce code.")
+    PageHeader(tr("Autres appareils"), tr("Recevoir les réglages"), tr("Sur votre téléphone, ouvrez Veltrio, Réglages, « Envoyer vers une TV », choisissez cette TV (ou tapez son adresse) et ce code."))
     Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Eyebrow("Code")
+        Eyebrow(tr("Code"))
         Text(state.code.chunked(3).joinToString(" "), style = Type.mono(72, FontWeight.Bold), color = p.accentText)
         Text(state.name, style = Type.mono(13), color = p.textTertiary)
         if (state.addresses.isNotEmpty()) Text("Adresse : ${state.addresses.joinToString("  ·  ")}", style = Type.mono(13), color = p.textTertiary)
         when {
             state.busy -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 CircularProgressIndicator(color = p.accent, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
-                Text("Réception et installation…", style = Type.body(15), color = p.textPrimary)
+                Text(tr("Réception et installation…"), style = Type.body(15), color = p.textPrimary)
             }
             state.result != null -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(state.result!!, style = Type.body(16), color = p.success)
-                PrimaryButton("Terminé") { Nav.showTab(0) }
+                PrimaryButton(tr("Terminé")) { Nav.showTab(0) }
             }
-            else -> Text("En attente d'un téléphone sur le même réseau…", style = Type.body(15), color = p.textSecondary)
+            else -> Text(tr("En attente d'un téléphone sur le même réseau…"), style = Type.body(15), color = p.textSecondary)
         }
         state.error?.let { Text(it, style = Type.caption(13), color = p.danger) }
         Text(
-            "Sont envoyés : les addons, les playlists IPTV, les services debrid, les comptes (Stremio, Trakt, SIMKL), les serveurs média, la Collection et les préférences de lecture. Rien de ce qui est déjà ici n'est retiré. Tout passe chiffré, avec une clé liée à ce code.",
+            tr("Sont envoyés : les addons, les playlists IPTV, les services debrid, les comptes (Stremio, Trakt, SIMKL), les serveurs média, la Collection et les préférences de lecture. Rien de ce qui est déjà ici n'est retiré. Tout passe chiffré, avec une clé liée à ce code."),
             style = Type.caption(12), color = p.textTertiary, modifier = Modifier.widthIn(max = 640.dp),
         )
     }
@@ -112,12 +113,12 @@ private fun Send() {
     var busy by remember { mutableStateOf(false) }
     var result by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
-    PageHeader("Autres appareils", "Envoyer vers une TV", "Sur la TV, ouvrez Veltrio, « Depuis un téléphone » (en bas du menu de gauche) : elle apparaît ici et affiche un code.")
+    PageHeader(tr("Autres appareils"), tr("Envoyer vers une TV"), tr("Sur la TV, ouvrez Veltrio, « Depuis un téléphone » (en bas du menu de gauche) : elle apparaît ici et affiche un code."))
     Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Eyebrow("Sur ce réseau")
+        Eyebrow(tr("Sur ce réseau"))
         if (targets.isEmpty()) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             CircularProgressIndicator(color = p.accent, strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
-            Text("Recherche d'une TV en attente…", style = Type.body(14), color = p.textSecondary)
+            Text(tr("Recherche d'une TV en attente…"), style = Type.body(14), color = p.textSecondary)
         }
         targets.forEach { t ->
             val selected = t == target
@@ -130,15 +131,15 @@ private fun Send() {
             }
         }
         var manual by remember { mutableStateOf("") }
-        Text("Pas dans la liste ? L'adresse affichée sur la TV :", style = Type.caption(12), color = p.textTertiary)
+        Text(tr("Pas dans la liste ? L'adresse affichée sur la TV :"), style = Type.caption(12), color = p.textTertiary)
         TextInput(manual, { v ->
             manual = v
             target = Pairing.manualTarget(v)
         }, "192.168.1.20:8765")
         target?.let { t ->
-            Text("Code affiché sur ${t.name}", style = Type.eyebrow(9, 0.18f), color = p.textTertiary)
+            Text(tr("Code affiché sur %s", t.name), style = Type.eyebrow(9, 0.18f), color = p.textTertiary)
             TextInput(code, { v -> code = v.filter(Char::isDigit).take(6) }, "000000", keyboardOptions = KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.NumberPassword))
-            PrimaryButton("Envoyer", enabled = code.length == 6, loading = busy) {
+            PrimaryButton(tr("Envoyer"), enabled = code.length == 6, loading = busy) {
                 busy = true
                 error = null
                 scope.launch {
@@ -151,12 +152,12 @@ private fun Send() {
                 }
             }
         }
-        result?.let { Text("Reçu par la TV : $it.", style = Type.body(14), color = p.success) }
+        result?.let { Text(tr("Reçu par la TV : %s.", it), style = Type.body(14), color = p.success) }
         error?.let { Text(it, style = Type.caption(12), color = p.danger) }
         Text(
-            "Sont envoyés : les addons, les playlists IPTV, les services debrid, les comptes, les serveurs média, la Collection et les préférences de lecture, chiffrés avec une clé liée au code de la TV.",
+            tr("Sont envoyés : les addons, les playlists IPTV, les services debrid, les comptes, les serveurs média, la Collection et les préférences de lecture, chiffrés avec une clé liée au code de la TV."),
             style = Type.caption(12), color = p.textTertiary,
         )
-        GhostButton("Retour") { Nav.back() }
+        GhostButton(tr("Retour")) { Nav.back() }
     }
 }

@@ -1,5 +1,6 @@
 package app.veltrio.android
 
+import app.veltrio.shared.i18n.tr
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -29,7 +30,7 @@ class DownloadService : Service() {
     override fun onCreate() {
         super.onCreate()
         val manager = getSystemService(NotificationManager::class.java)
-        manager.createNotificationChannel(NotificationChannel(CHANNEL, "Téléchargements", NotificationManager.IMPORTANCE_LOW))
+        manager.createNotificationChannel(NotificationChannel(CHANNEL, tr("Téléchargements"), NotificationManager.IMPORTANCE_LOW))
         val type = if (Build.VERSION.SDK_INT >= 29) ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC else 0
         ServiceCompat.startForeground(this, ID, notification(), type)
         scope.launch {
@@ -57,7 +58,7 @@ class DownloadService : Service() {
         val open = PendingIntent.getActivity(this, 0, launch ?: Intent(), PendingIntent.FLAG_IMMUTABLE)
         NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(android.R.drawable.stat_sys_download)
-            .setContentTitle(if (active.size > 1) "${active.size} téléchargements" else first?.title ?: "Téléchargement")
+            .setContentTitle(if (active.size > 1) tr("%s téléchargements", active.size) else first?.title ?: tr("Téléchargement"))
             .setContentText(first?.let { "${(it.progress * 100).toInt()} %" } ?: "")
             .setProgress(100, ((first?.progress ?: 0.0) * 100).toInt(), first == null || first.bytesExpected == 0L)
             .setOngoing(true).setSilent(true).setContentIntent(open)

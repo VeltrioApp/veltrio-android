@@ -1,5 +1,6 @@
 package app.veltrio.shared
 
+import app.veltrio.shared.i18n.tr
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -10,7 +11,7 @@ import java.util.Locale
 
 /** A subtitle from an addon's `subtitles` resource. */
 data class AddonSubtitle(val url: String, val lang: String?, val addonName: String) {
-    val language: String get() = lang?.let { Locale.forLanguageTag(it).displayLanguage.ifEmpty { null }?.replaceFirstChar(Char::uppercase) } ?: "Langue inconnue"
+    val language: String get() = lang?.let { Locale.forLanguageTag(it).displayLanguage.ifEmpty { null }?.replaceFirstChar(Char::uppercase) } ?: tr("Langue inconnue")
 }
 
 /** Subtitles from every enabled addon that serves them (Stremio:

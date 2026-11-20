@@ -1,5 +1,6 @@
 package app.veltrio.shared.player
 
+import app.veltrio.shared.i18n.tr
 import android.content.Context
 import android.view.SurfaceHolder
 import dev.jdtech.mpv.MPVLib
@@ -53,7 +54,7 @@ data class PlayerState(
 /** libmpv drawing into a SurfaceView, as the macOS and Windows players: one
  *  instance per player screen, [release]d when it goes. */
 class MpvPlayer(context: Context) : SurfaceHolder.Callback, MPVLib.EventObserver {
-    private val mpv = checkNotNull(MPVLib.create(context.applicationContext)) { "libmpv could not start" }
+    private val mpv = checkNotNull(MPVLib.create(context.applicationContext)) { tr("libmpv could not start") }
     private val _state = MutableStateFlow(PlayerState())
     val state: StateFlow<PlayerState> = _state
     private var released = false

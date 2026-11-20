@@ -1,5 +1,6 @@
 package app.veltrio.shared
 
+import app.veltrio.shared.i18n.tr
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -45,7 +46,7 @@ private val jsonType = "application/json".toMediaType()
 private fun JsonElement.body() = toString().toRequestBody(jsonType)
 
 internal object AccountText {
-    fun importResult(read: Int, changed: Int) = "$read titre${if (read > 1) "s" else ""} lu${if (read > 1) "s" else ""}, $changed mis à jour"
+    fun importResult(read: Int, changed: Int) = tr("%s titre%s lu%s, %s mis à jour", read, if (read > 1) "s" else "", if (read > 1) "s" else "", changed)
     fun parseDate(s: String?): Long? = s?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() }
 }
 
@@ -104,7 +105,7 @@ object StremioAccount : AccountService() {
         update { it.copy(error = null, busy = true) }
         try {
             val login = call("login", buildJsonObject { put("type", "Login"); put("email", email); put("password", password); put("facebook", false) })
-            val key = login.str("authKey") ?: throw ServiceException("Stremio n'a pas renvoyé de session.")
+            val key = login.str("authKey") ?: throw ServiceException(tr("Stremio n'a pas renvoyé de session."))
             val shown = login["user"].str("email") ?: email
             authKey = key
             SecretStore.set(KEY_SECRET, key)
@@ -147,10 +148,10 @@ object StremioAccount : AccountService() {
                 var installed = 0
                 for (url in urls) if (Core.installAddon(url) == null) installed++
                 val result = when {
-                    installed == 0 && urls.isEmpty() -> "Tous les addons du compte sont déjà installés"
-                    installed == 0 -> "Aucun addon n'a pu être installé"
-                    installed == 1 -> "1 addon installé"
-                    else -> "$installed addons installés"
+                    installed == 0 && urls.isEmpty() -> tr("Tous les addons du compte sont déjà installés")
+                    installed == 0 -> tr("Aucun addon n'a pu être installé")
+                    installed == 1 -> tr("1 addon installé")
+                    else -> tr("%s addons installés", installed)
                 }
                 update { it.copy(addonResult = result) }
             } catch (e: Exception) {
@@ -187,9 +188,9 @@ object StremioAccount : AccountService() {
         json["result"]?.takeIf { it !is kotlinx.serialization.json.JsonNull }?.let { return it }
         throw ServiceException(
             when (val message = json["error"].str("message")) {
-                null -> "Stremio a refusé la demande."
-                "Wrong passphrase", "User not found" -> "E-mail ou mot de passe incorrect."
-                else -> "Stremio : $message"
+                null -> tr("Stremio a refusé la demande.")
+                tr("Wrong passphrase"), tr("User not found") -> tr("E-mail ou mot de passe incorrect.")
+                else -> tr("Stremio : %s", message)
             },
         )
     }
@@ -254,7 +255,7 @@ object TraktAccount : AccountService() {
                         return@launch
                     }
                 }
-                update { it.copy(error = "Le code Trakt a expiré. Recommencez.") }
+                update { it.copy(error = tr("Le code Trakt a expiré. Recommencez.")) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -308,8 +309,8 @@ object TraktAccount : AccountService() {
         .header("trakt-api-version", "2").header("trakt-api-key", clientId ?: "")
         .apply { if (auth) token?.let { header("Authorization", "Bearer $it") } }
 
-    private suspend fun get(path: String) = Http.json(request(path, auth = true).build(), "Trakt")
-    private suspend fun post(path: String, body: JsonElement, auth: Boolean) = Http.json(request(path, auth).post(body.body()).build(), "Trakt")
+    private suspend fun get(path: String) = Http.json(request(path, auth = true).build(), tr("Trakt"))
+    private suspend fun post(path: String, body: JsonElement, auth: Boolean) = Http.json(request(path, auth).post(body.body()).build(), tr("Trakt"))
 }
 
 /** SIMKL: PIN sign-in, scrobbling, and importing the account's lists.
@@ -352,7 +353,7 @@ object SimklAccount : AccountService() {
                         return@launch
                     }
                 }
-                update { it.copy(error = "Le code SIMKL a expiré. Recommencez.") }
+                update { it.copy(error = tr("Le code SIMKL a expiré. Recommencez.")) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -373,7 +374,7 @@ object SimklAccount : AccountService() {
     /** Plan-to-watch and watching (saved) and completed (watched) lists. */
     fun importLibrary() {
         if (!isConnected) return
-        runImport("Impossible de lire les listes SIMKL. ") {
+        runImport(tr("Impossible de lire les listes SIMKL. ")) {
             val all = send("/sync/all-items/", null, auth = true)
             all.array("movies").mapNotNull { item(it, isFilm = true) } +
                 (all.array("shows") + all.array("anime")).mapNotNull { item(it, isFilm = false) }

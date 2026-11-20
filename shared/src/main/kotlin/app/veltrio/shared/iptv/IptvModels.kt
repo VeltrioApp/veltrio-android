@@ -1,5 +1,6 @@
 package app.veltrio.shared.iptv
 
+import app.veltrio.shared.i18n.tr
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 import uniffi.veltrio.IptvChannel
@@ -38,7 +39,7 @@ data class PlaylistRef(
     val addedAt: Long = System.currentTimeMillis(),
 ) {
     val isXtream get() = xtream != null
-    val sourceLabel get() = if (xtream != null) "XTREAM · ${xtream.baseUrl}" else url
+    val sourceLabel get() = if (xtream != null) tr("XTREAM · %s", xtream.baseUrl) else url
 }
 
 enum class ChannelKind { Live, Movie, Series }
@@ -82,7 +83,7 @@ data class ChannelItem(
         fun from(c: IptvChannel) = ChannelItem(
             id = c.id, name = c.name, streamUrl = c.streamUrl,
             logo = c.logoUrl?.takeIf { it.isNotBlank() },
-            group = c.group?.takeIf { it.isNotBlank() } ?: "Sans groupe",
+            group = c.group?.takeIf { it.isNotBlank() } ?: tr("Sans groupe"),
             tvgId = c.tvgId?.takeIf { it.isNotBlank() }, tvgName = c.tvgName?.takeIf { it.isNotBlank() },
         )
     }
