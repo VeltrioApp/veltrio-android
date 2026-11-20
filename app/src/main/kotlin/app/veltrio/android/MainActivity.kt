@@ -66,6 +66,15 @@ class MainActivity : ComponentActivity() {
                         composable("search") { SearchScreen() }
                         composable("settings") { SettingsScreen() }
                     }
+                    // Debug builds only: `adb shell am start … --es play_url <url>`
+                    // opens the player straight away, to test it without an addon.
+                    val debuggable = applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0
+                    androidx.compose.runtime.LaunchedEffect(Unit) {
+                        val url = intent.getStringExtra("play_url")
+                        if (debuggable && url != null) {
+                            Nav.play(app.veltrio.shared.PlayRequest(title = "Test", subtitle = url, url = url, videoId = intent.getStringExtra("video_id")))
+                        }
+                    }
                 }
             }
         }
