@@ -170,14 +170,7 @@ class StreamItem(
 
     val quality: String
         get() {
-            val hay = "${stream.name} ${stream.title}".uppercase()
-            return when {
-                "2160P" in hay || "4K" in hay -> "4K"
-                "1080P" in hay -> "1080p"
-                "720P" in hay -> "720p"
-                "480P" in hay -> "480p"
-                else -> ""
-            }
+            return Core.resolution("${stream.name} ${stream.title}".uppercase())
         }
 
     /** Stremio's behaviorHints.bingeGroup: the same release across episodes. */

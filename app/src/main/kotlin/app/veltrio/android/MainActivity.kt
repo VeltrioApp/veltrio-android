@@ -102,6 +102,7 @@ class MainActivity : ComponentActivity() {
                             val (server, item) = Nav.arg<Pair<app.veltrio.shared.MediaServer, app.veltrio.shared.MediaLibraryItem>>(it.arguments?.getString("key"))!!
                             app.veltrio.android.screens.MediaServerSeriesScreen(server, item)
                         }
+                        composable("addoncatalog") { app.veltrio.android.screens.AddonCatalogScreen() }
                         composable("search") { SearchScreen() }
                         composable("settings") { SettingsScreen() }
                     }

@@ -84,6 +84,11 @@ fun SourcesScreen() {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = Spacing.md, bottom = Spacing.xl)) {
         item { PageHeader("Sources", "Sources", "Tous les catalogues, serveurs et résolveurs de flux qui alimentent l'app.") }
         item {
+            Box(Modifier.padding(start = Spacing.lg, top = Spacing.md)) {
+                PrimaryButton("Parcourir le catalogue d'addons", icon = Icons.Outlined.Extension) { app.veltrio.android.Nav.addonCatalog() }
+            }
+        }
+        item {
             Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SectionHeader(1, "Installer depuis une URL")
                 Text("Collez l'URL du manifest d'un addon Stremio (…/manifest.json ou un lien stremio://).", style = Type.body(13), color = p.textSecondary)

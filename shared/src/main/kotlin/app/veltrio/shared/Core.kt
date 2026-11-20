@@ -182,6 +182,17 @@ object Core {
         }.awaitAll().flatten().sortedByDescending { it.score }
     }
 
+    private val uhd = Regex("""(?<![A-Z0-9])(4K|2160P|UHD)(?![A-Z0-9])""")
+    private val resolutions = listOf("1080P" to "1080p", "720P" to "720p", "480P" to "480p")
+
+    /** The resolution a stream's name and title announce. Matched as whole
+     *  words: release sites and groups carry them too ("Wolfmax4k"), and
+     *  those mustn't make a 1080p file read as 4K. */
+    fun resolution(upperCased: String): String {
+        if (uhd.containsMatchIn(upperCased)) return "4K"
+        return resolutions.firstOrNull { (tag, _) -> Regex("""(?<![A-Z0-9])$tag(?![A-Z0-9])""").containsMatchIn(upperCased) }?.second ?: ""
+    }
+
     /** Same ranking as macOS: direct links before torrents, then resolution,
      *  HDR / Dolby / Atmos, then seeds. */
     fun score(s: uniffi.veltrio.Stream): Int {
@@ -191,11 +202,11 @@ object Core {
             is StreamSource.External -> 3_000
             else -> 0
         }
-        score += when {
-            "2160P" in hay || "4K" in hay -> 2_000
-            "1080P" in hay -> 1_500
-            "720P" in hay -> 1_000
-            "480P" in hay -> 500
+        score += when (resolution(hay)) {
+            "4K" -> 2_000
+            "1080p" -> 1_500
+            "720p" -> 1_000
+            "480p" -> 500
             else -> 0
         }
         if ("HDR" in hay) score += 200
