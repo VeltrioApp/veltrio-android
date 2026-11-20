@@ -37,7 +37,18 @@ data class PlayerState(
     val width: Int = 0,
     val height: Int = 0,
     val hwdec: String? = null,
-)
+    val chapter: Int = -1,
+    val subDelay: Double = 0.0,
+) {
+    /** The playhead is in a chapter titled like an intro (as macOS): where
+     *  "Passer l'intro" jumps to, the next chapter's start; else null. */
+    val introEnd: Double? get() {
+        val title = chapters.getOrNull(chapter)?.title?.lowercase() ?: return null
+        val hits = listOf("intro", "opening", "op ", "theme song", "generique", "générique")
+        if (hits.none { it in title }) return null
+        return chapters.getOrNull(chapter + 1)?.start
+    }
+}
 
 /** libmpv drawing into a SurfaceView, as the macOS and Windows players: one
  *  instance per player screen, [release]d when it goes. */
@@ -89,6 +100,8 @@ class MpvPlayer(context: Context) : SurfaceHolder.Callback, MPVLib.EventObserver
             observeProperty("chapter-list/count", MpvFormat.MPV_FORMAT_INT64)
             observeProperty("video-params/w", MpvFormat.MPV_FORMAT_INT64)
             observeProperty("hwdec-current", MpvFormat.MPV_FORMAT_STRING)
+            observeProperty("chapter", MpvFormat.MPV_FORMAT_INT64)
+            observeProperty("sub-delay", MpvFormat.MPV_FORMAT_DOUBLE)
         }
     }
 
@@ -108,6 +121,34 @@ class MpvPlayer(context: Context) : SurfaceHolder.Callback, MPVLib.EventObserver
     fun setSpeed(speed: Double) = mpv.setPropertyDouble("speed", speed)
     fun selectAudio(id: Int) = mpv.setPropertyString("aid", "$id")
     fun selectSubtitle(id: Int?) = mpv.setPropertyString("sid", id?.toString() ?: "no")
+    fun setSubDelay(seconds: Double) = mpv.setPropertyDouble("sub-delay", seconds)
+
+    /** A playback profile, as macOS: video scaling and HDR tone mapping, or
+     *  audio passthrough to an amplifier (HDMI on a TV box). */
+    fun applyProfile(profile: app.veltrio.shared.PlaybackProfile, toneMapping: String) {
+        when (profile) {
+            app.veltrio.shared.PlaybackProfile.Quality -> {
+                mpv.setPropertyString("scale", "spline36")
+                mpv.setPropertyString("cscale", "spline36")
+                mpv.setPropertyString("deband", "yes")
+            }
+            app.veltrio.shared.PlaybackProfile.Performance -> {
+                mpv.setPropertyString("scale", "bilinear")
+                mpv.setPropertyString("cscale", "bilinear")
+                mpv.setPropertyString("deband", "no")
+                mpv.setPropertyString("framedrop", "decoder+vo")
+            }
+            else -> {
+                mpv.setPropertyString("scale", "bilinear")
+                mpv.setPropertyString("deband", "no")
+            }
+        }
+        // Bitstream DTS / AC3 / E-AC3 to the amplifier; PCM otherwise.
+        mpv.setPropertyString("audio-spdif", if (profile == app.veltrio.shared.PlaybackProfile.Audiophile) "ac3,dts,eac3,truehd,dts-hd" else "")
+        mpv.setPropertyString("audio-buffer", if (profile == app.veltrio.shared.PlaybackProfile.Audiophile) "0.5" else "0.2")
+        mpv.setPropertyString("tone-mapping", toneMapping)
+    }
+
     fun addSubtitle(url: String, title: String) = mpv.command(arrayOf("sub-add", url, "select", title))
 
     /** "fit", "fill" (crop to the screen) or "stretch". */
@@ -159,6 +200,7 @@ class MpvPlayer(context: Context) : SurfaceHolder.Callback, MPVLib.EventObserver
         when (property) {
             "track-list/count" -> readTracks()
             "chapter-list/count" -> readChapters(value.toInt())
+            "chapter" -> update { copy(chapter = value.toInt()) }
             "video-params/w" -> update {
                 copy(width = value.toInt(), height = mpv.getPropertyInt("video-params/h") ?: 0, videoCodec = mpv.getPropertyString("video-codec"))
             }
@@ -170,6 +212,7 @@ class MpvPlayer(context: Context) : SurfaceHolder.Callback, MPVLib.EventObserver
             "time-pos" -> update { copy(position = value) }
             "duration" -> update { copy(duration = value) }
             "speed" -> update { copy(speed = value) }
+            "sub-delay" -> update { copy(subDelay = value) }
         }
     }
 

@@ -4,6 +4,13 @@ import kotlinx.serialization.Serializable
 
 enum class AppTheme(val label: String) { System("Système"), Dark("Sombre"), Light("Clair") }
 
+enum class PlaybackProfile(val label: String, val blurb: String) {
+    Balanced("Équilibré", "Réglages sûrs, bons sur tout appareil."),
+    Quality("Qualité maximale", "Meilleure image, plus de calcul ; tone mapping HDR soigné."),
+    Performance("Performances", "Peu de calcul, peu d'énergie ; filtres d'image simples."),
+    Audiophile("Audiophile", "Son en bitstream (DTS, AC3…) vers l'ampli ; tampon audio plus grand."),
+}
+
 /** App-wide choices (app-prefs.json). */
 @Serializable
 data class AppPrefs(val theme: AppTheme = AppTheme.Dark) {
@@ -35,6 +42,9 @@ data class PlayerPrefs(
     val hwdec: String = "mediacodec-copy",
     /** Read-ahead buffer for network streams, in MiB. */
     val cacheMiB: Int = 64,
+    val profile: PlaybackProfile = PlaybackProfile.Balanced,
+    /** mpv's tone-mapping for HDR on an SDR screen. */
+    val toneMapping: String = "auto",
 ) {
     companion object {
         private const val FILE = "player-prefs.json"
@@ -59,6 +69,10 @@ data class PlayerPrefs(
         )
         val decoders = listOf("mediacodec-copy" to "Matériel (sûr)", "mediacodec" to "Matériel (direct)", "no" to "Logiciel")
         val cacheSizes = listOf(32, 64, 150, 300)
+        val toneMappings = listOf(
+            "auto" to "Automatique", "bt.2446a" to "BT.2446a (équilibré)", "bt.2390" to "BT.2390 (cinéma)",
+            "hable" to "Hable", "reinhard" to "Reinhard", "clip" to "Aucun (écrêter)",
+        )
 
         /** The codes a language goes by: ISO 639-1, -2/B and -2/T. */
         fun synonyms(code: String): Set<String> {

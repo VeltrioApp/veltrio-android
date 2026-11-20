@@ -234,6 +234,9 @@ private fun PlaybackSection() {
     Picker("Sous-titres préférés", PlayerPrefs.languages, prefs.subtitleLang) { v -> set { it.copy(subtitleLang = v) } }
     Picker("Décodage vidéo", PlayerPrefs.decoders, prefs.hwdec) { v -> set { it.copy(hwdec = v) } }
     Picker("Mémoire tampon (flux réseau)", PlayerPrefs.cacheSizes.map { it to "$it Mo" }, prefs.cacheMiB) { v -> set { it.copy(cacheMiB = v) } }
+    Picker("Profil de lecture", app.veltrio.shared.PlaybackProfile.entries.map { it to it.label }, prefs.profile) { v -> set { it.copy(profile = v) } }
+    Text(prefs.profile.blurb, style = Type.caption(12), color = p.textTertiary)
+    Picker("Tone mapping HDR (écran SDR)", PlayerPrefs.toneMappings, prefs.toneMapping) { v -> set { it.copy(toneMapping = v) } }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text("Enchaîner l'épisode suivant (compte à rebours de 10 s en fin d'épisode)", style = Type.body(14), color = p.textPrimary, modifier = Modifier.weight(1f))
         Switch(prefs.autoNextEpisode, { v -> set { it.copy(autoNextEpisode = v) } }, colors = SwitchDefaults.colors(checkedTrackColor = p.accent, checkedThumbColor = p.onAccent))

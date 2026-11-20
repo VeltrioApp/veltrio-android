@@ -36,6 +36,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.AspectRatio
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Cast
 import androidx.compose.material.icons.filled.Audiotrack
 import androidx.compose.material.icons.filled.Check
@@ -106,6 +110,7 @@ import app.veltrio.shared.AddonSubtitle
 import app.veltrio.shared.ChromecastService
 import app.veltrio.shared.Core
 import app.veltrio.shared.PlayerPrefs
+import app.veltrio.shared.PlaybackProfile
 import app.veltrio.shared.Scrobbler
 import app.veltrio.shared.SubtitleFetcher
 import app.veltrio.shared.PlayRequest
@@ -122,7 +127,7 @@ import kotlinx.coroutines.launch
 private val speeds = listOf(0.5, 0.75, 1.0, 1.25, 1.5, 2.0)
 private val aspects = listOf("fit" to "Adapter", "fill" to "Remplir l'écran", "stretch" to "Étirer")
 
-private enum class Panel { Channels, Audio, Subtitles, Speed, Aspect, Cast, Info }
+private enum class Panel { Channels, Audio, Subtitles, Speed, Aspect, Profile, Cast, Info }
 
 /** The player, as macOS's PlayerView on a phone: full screen in landscape,
  *  the Back pill, title and track menus above, the thin amber seek bar and
@@ -151,6 +156,7 @@ fun PlayerScreen(request: PlayRequest) {
     var aspect by remember { mutableStateOf("fit") }
     var scrub by remember { mutableStateOf<Double?>(null) }
     var endOverlay by remember { mutableStateOf(false) }
+    var replay by remember { mutableStateOf(false) }
     val latest by rememberUpdatedState(state)
 
     val scrobbler = remember { Scrobbler(request) }
@@ -188,6 +194,7 @@ fun PlayerScreen(request: PlayRequest) {
             val start = if (request.isLive || request.contentType == null || request.contentId == null) 0.0
             else WatchStore.resumePosition(request.contentType!!, request.contentId!!, request.videoId)
             resolvedUrl = url
+            PlayerPrefs.current.let { player.applyProfile(it.profile, it.toneMapping) }
             player.load(url, start)
         } catch (e: Exception) {
             resolveError = Core.humanize(e)
@@ -337,7 +344,7 @@ fun PlayerScreen(request: PlayRequest) {
 
         AnimatedVisibility(controls && error == null, enter = fadeIn(), exit = fadeOut()) {
             Box(Modifier.fillMaxSize()) {
-                TopBar(request, state, Modifier.align(Alignment.TopCenter)) {
+                TopBar(request, state, Modifier.align(Alignment.TopCenter), onReplay = { replay = true }) {
                     panel = if (panel == it) null else it
                     touched++
                 }
@@ -360,6 +367,7 @@ fun PlayerScreen(request: PlayRequest) {
                     Panel.Subtitles -> "Sous-titres"
                     Panel.Speed -> "Vitesse"
                     Panel.Aspect -> "Format de l'image"
+                    Panel.Profile -> "Profil de lecture"
                     Panel.Cast -> "Caster"
                     Panel.Info -> "Infos média"
                 },
@@ -382,9 +390,36 @@ fun PlayerScreen(request: PlayRequest) {
                                 addedSubtitles = addedSubtitles + sub.url
                             }
                         }
+                        // Out of sync: shift them, as macOS's Z / X.
+                        Text("DÉCALAGE", style = Type.eyebrow(9, 0.18f), color = Color.White.copy(alpha = 0.5f), modifier = Modifier.padding(start = 20.dp, top = 14.dp))
+                        Row(Modifier.padding(horizontal = 20.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Pill("−0,1 s", Icons.Filled.Remove, primary = false) { player.setSubDelay(state.subDelay - 0.1) }
+                            Text("%+.1f s".format(state.subDelay), style = Type.mono(13, FontWeight.Bold), color = Color.White)
+                            Pill("+0,1 s", Icons.Filled.Add, primary = false) { player.setSubDelay(state.subDelay + 0.1) }
+                        }
+                        if (kotlin.math.abs(state.subDelay) > 0.001) Option("Remettre à zéro", null, false) { player.setSubDelay(0.0) }
                     }
                     Panel.Speed -> speeds.forEach { s ->
                         Option(if (s == 1.0) "Normale" else "×${s.toString().trimEnd('0').trimEnd('.')}", null, kotlin.math.abs(state.speed - s) < 0.01) { player.setSpeed(s) }
+                    }
+                    Panel.Profile -> {
+                        var prefs by remember { mutableStateOf(PlayerPrefs.current) }
+                        PlaybackProfile.entries.forEach { pr ->
+                            Option(pr.label, null, pr == prefs.profile) {
+                                PlayerPrefs.update { it.copy(profile = pr) }
+                                prefs = PlayerPrefs.current
+                                player.applyProfile(pr, prefs.toneMapping)
+                            }
+                        }
+                        Text(prefs.profile.blurb, style = Type.caption(11), color = Color.White.copy(alpha = 0.55f), modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp))
+                        Text("TONE MAPPING HDR", style = Type.eyebrow(9, 0.18f), color = Color.White.copy(alpha = 0.5f), modifier = Modifier.padding(start = 20.dp, top = 12.dp))
+                        PlayerPrefs.toneMappings.forEach { (key, label) ->
+                            Option(label, null, key == prefs.toneMapping) {
+                                PlayerPrefs.update { it.copy(toneMapping = key) }
+                                prefs = PlayerPrefs.current
+                                player.applyProfile(prefs.profile, key)
+                            }
+                        }
                     }
                     Panel.Aspect -> aspects.forEach { (key, label) ->
                         Option(label, null, key == aspect) { aspect = key; player.setAspect(key) }
@@ -413,6 +448,19 @@ fun PlayerScreen(request: PlayRequest) {
             }
         }
 
+        // In an intro chapter: "Passer l'intro", as macOS.
+        state.introEnd?.let { end ->
+            if (!endOverlay && panel == null && cast.state == ChromecastService.CastState.Idle) {
+                Box(Modifier.align(Alignment.BottomEnd).padding(end = 28.dp, bottom = 110.dp)) {
+                    Pill("Passer l'intro", Icons.Filled.SkipNext, primary = true) { player.seek(end) }
+                }
+            }
+        }
+
+        if (replay && request.channel != null && request.playlist != null) {
+            CatchupDialog(request.playlist!!, request.channel!!, onPlay = { Nav.zap(it) }) { replay = false }
+        }
+
         if (endOverlay) {
             EndOfEpisode(
                 request,
@@ -425,7 +473,7 @@ fun PlayerScreen(request: PlayRequest) {
 }
 
 @Composable
-private fun TopBar(request: PlayRequest, state: PlayerState, modifier: Modifier, onPanel: (Panel) -> Unit) {
+private fun TopBar(request: PlayRequest, state: PlayerState, modifier: Modifier, onReplay: () -> Unit, onPanel: (Panel) -> Unit) {
     Row(
         modifier.fillMaxWidth()
             .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.65f), Color.Transparent)))
@@ -453,6 +501,8 @@ private fun TopBar(request: PlayRequest, state: PlayerState, modifier: Modifier,
         GlassIcon(Icons.Filled.Subtitles, "Sous-titres") { onPanel(Panel.Subtitles) }
         if (!request.isLive) GlassIcon(Icons.Filled.Speed, "Vitesse") { onPanel(Panel.Speed) }
         GlassIcon(Icons.Filled.AspectRatio, "Format") { onPanel(Panel.Aspect) }
+        GlassIcon(Icons.Filled.Tune, "Profil de lecture") { onPanel(Panel.Profile) }
+        if (request.isLive && request.channel?.hasCatchup == true && request.playlist?.xtream != null) GlassIcon(Icons.Filled.History, "Revoir") { onReplay() }
         GlassIcon(Icons.Filled.Cast, "Caster") { onPanel(Panel.Cast) }
         GlassIcon(Icons.Outlined.Info, "Infos média") { onPanel(Panel.Info) }
     }

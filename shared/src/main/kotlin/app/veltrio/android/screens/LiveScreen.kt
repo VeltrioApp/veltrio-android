@@ -327,7 +327,7 @@ private fun ChannelHero(playlist: PlaylistRef, c: ChannelItem, now: Instant) {
 
 /** Past programmes the provider keeps, to replay one. */
 @Composable
-private fun CatchupDialog(playlist: PlaylistRef, c: ChannelItem, onDismiss: () -> Unit) {
+internal fun CatchupDialog(playlist: PlaylistRef, c: ChannelItem, onPlay: (PlayRequest) -> Unit = Nav::play, onDismiss: () -> Unit) {
     val p = VeltrioTheme.palette
     val account = playlist.xtream ?: return
     var programmes by remember { mutableStateOf<List<XtreamProgramme>?>(null) }
@@ -345,7 +345,7 @@ private fun CatchupDialog(playlist: PlaylistRef, c: ChannelItem, onDismiss: () -
                         Row(
                             Modifier.fillMaxWidth().clickable {
                                 onDismiss()
-                                Nav.play(
+                                onPlay(
                                     PlayRequest(
                                         title = c.name, subtitle = "Replay · ${prog.timeRange} · ${prog.title}",
                                         url = XtreamClient.timeshiftUrl(account, c.xtreamId!!, prog), channel = c, playlist = playlist,
