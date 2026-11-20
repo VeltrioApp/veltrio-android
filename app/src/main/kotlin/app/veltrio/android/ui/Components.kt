@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,10 +35,11 @@ import app.veltrio.shared.ui.VeltrioTheme
 import coil3.compose.AsyncImage
 
 /** A 2:3 poster with its title and a mono subtitle, as macOS's PosterCard. */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-fun PosterCard(title: String, posterUrl: String?, subtitle: String?, width: Dp = 128.dp, progress: Float? = null, onClick: () -> Unit) {
+fun PosterCard(title: String, posterUrl: String?, subtitle: String?, width: Dp = 128.dp, progress: Float? = null, onLongClick: (() -> Unit)? = null, onClick: () -> Unit) {
     val p = VeltrioTheme.palette
-    Column(Modifier.width(width).clickable(onClick = onClick), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(Modifier.width(width).combinedClickable(onClick = onClick, onLongClick = onLongClick), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f).background(p.surface).border(1.dp, p.border)) {
             Text(
                 title.take(1).uppercase(), style = Type.displaySerif(28), color = p.textQuaternary,
@@ -120,9 +122,9 @@ fun Chip(label: String, selected: Boolean, modifier: Modifier = Modifier, onClic
 
 /** The page header: eyebrow, serif title, a line of context, a rule. */
 @Composable
-fun PageHeader(eyebrow: String?, title: String, subtitle: String? = null, modifier: Modifier = Modifier) {
+fun PageHeader(eyebrow: String?, title: String, subtitle: String? = null, modifier: Modifier = Modifier, inset: Dp = Spacing.lg) {
     val p = VeltrioTheme.palette
-    Column(modifier.fillMaxWidth().padding(horizontal = Spacing.lg), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(modifier.fillMaxWidth().padding(horizontal = inset), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (eyebrow != null) Eyebrow(eyebrow)
         Text(title, style = Type.displaySerif(34), color = p.textPrimary)
         if (subtitle != null) Text(subtitle, style = Type.body(13), color = p.textSecondary)
