@@ -36,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import app.veltrio.android.screens.CatalogScreen
 import app.veltrio.android.screens.DetailScreen
@@ -70,12 +71,33 @@ class MainActivity : ComponentActivity() {
             VeltrioTheme(dark = dark) {
                 val controller = rememberNavController()
                 Nav.controller = controller
+                // The player is full screen, in landscape, with the screen kept
+                // on. Decided here from the destination, so zapping (one player
+                // replacing another) doesn't flip back to portrait in between.
+                val entry by controller.currentBackStackEntryAsState()
+                val inPlayer = entry?.destination?.route?.startsWith("player/") == true
+                androidx.compose.runtime.LaunchedEffect(inPlayer) {
+                    val insets = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
+                    if (inPlayer) {
+                        requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                        insets.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                        insets.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+                    } else {
+                        requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                        insets.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+                    }
+                    window.decorView.keepScreenOn = inPlayer
+                }
                 Box(Modifier.fillMaxSize().background(VeltrioTheme.palette.background)) {
                     NavHost(controller, startDestination = "tabs") {
                         composable("tabs") { Tabs() }
                         composable("detail/{key}") { DetailScreen(Nav.arg(it.arguments?.getString("key"))!!) }
                         composable("catalog/{key}") { CatalogScreen(Nav.arg(it.arguments?.getString("key"))!!) }
                         composable("player/{key}") { PlayerScreen(Nav.arg(it.arguments?.getString("key"))!!) }
+                        composable("iptvseries/{key}") {
+                            val (playlist, series) = Nav.arg<Pair<app.veltrio.shared.iptv.PlaylistRef, app.veltrio.shared.iptv.ChannelItem>>(it.arguments?.getString("key"))!!
+                            app.veltrio.android.screens.IptvSeriesScreen(playlist, series)
+                        }
                         composable("search") { SearchScreen() }
                         composable("settings") { SettingsScreen() }
                     }

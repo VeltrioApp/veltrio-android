@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -47,6 +48,7 @@ import app.veltrio.android.ui.PrimaryButton
 import app.veltrio.android.ui.SectionHeader
 import app.veltrio.shared.AddonInfo
 import app.veltrio.shared.Core
+import app.veltrio.shared.iptv.IptvStore
 import app.veltrio.shared.ui.Spacing
 import app.veltrio.shared.ui.Type
 import app.veltrio.shared.ui.VeltrioTheme
@@ -65,6 +67,9 @@ fun SourcesScreen() {
     var url by remember { mutableStateOf("") }
     var installing by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    val playlists by IptvStore.playlists.collectAsState()
+    var addingPlaylist by remember { mutableStateOf(false) }
+    if (addingPlaylist) AddPlaylistDialog { addingPlaylist = false }
 
     fun install(target: String) {
         installing = true
@@ -101,7 +106,27 @@ fun SourcesScreen() {
         items(addons, key = { it.id }) { addon ->
             AddonRow(addon, enabled = addon.id !in disabled, index = addons.indexOf(addon), count = addons.size)
         }
-        item { SectionHeader(3, "Suggérés", modifier = Modifier.padding(start = Spacing.lg, end = Spacing.lg, top = Spacing.xl)) }
+        item {
+            SectionHeader(3, "Playlists IPTV", "${playlists.size} source${if (playlists.size > 1) "s" else ""}", Modifier.padding(start = Spacing.lg, end = Spacing.lg, top = Spacing.xl)) {
+                GhostButton("Ajouter", icon = Icons.Filled.Add) { addingPlaylist = true }
+            }
+            if (playlists.isEmpty()) Text("Une playlist M3U ou un compte Xtream Codes alimente l'onglet Direct.", style = Type.body(13), color = p.textSecondary, modifier = Modifier.padding(Spacing.lg))
+        }
+        items(playlists, key = { "pl-" + it.id }) { pl ->
+            Column {
+                Row(Modifier.fillMaxWidth().padding(horizontal = Spacing.lg, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(pl.name, style = Type.title(16), color = p.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(pl.sourceLabel, style = Type.mono(10), color = p.textTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    Box(Modifier.size(40.dp).clickable { IptvStore.remove(pl) }, contentAlignment = Alignment.Center) {
+                        Icon(Icons.Filled.Delete, "Supprimer", tint = p.danger)
+                    }
+                }
+                Box(Modifier.padding(horizontal = Spacing.lg).fillMaxWidth().height(1.dp).background(p.border))
+            }
+        }
+        item { SectionHeader(4, "Suggérés", modifier = Modifier.padding(start = Spacing.lg, end = Spacing.lg, top = Spacing.xl)) }
         items(Core.suggestedAddons) { s ->
             val installed = Core.isInstalled(s.url)
             Row(Modifier.fillMaxWidth().padding(horizontal = Spacing.lg, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {

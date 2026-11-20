@@ -34,6 +34,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.filled.Audiotrack
 import androidx.compose.material.icons.filled.Check
@@ -52,6 +53,8 @@ import androidx.compose.material.icons.filled.Subtitles
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -93,6 +96,8 @@ import app.veltrio.shared.PlayerPrefs
 import app.veltrio.shared.SubtitleFetcher
 import app.veltrio.shared.PlayRequest
 import app.veltrio.shared.WatchStore
+import app.veltrio.shared.iptv.EpgStore
+import app.veltrio.shared.iptv.IptvStore
 import app.veltrio.shared.player.MpvPlayer
 import app.veltrio.shared.player.PlayerState
 import app.veltrio.shared.ui.Type
@@ -103,7 +108,7 @@ import kotlinx.coroutines.launch
 private val speeds = listOf(0.5, 0.75, 1.0, 1.25, 1.5, 2.0)
 private val aspects = listOf("fit" to "Adapter", "fill" to "Remplir l'écran", "stretch" to "Étirer")
 
-private enum class Panel { Audio, Subtitles, Speed, Aspect, Info }
+private enum class Panel { Channels, Audio, Subtitles, Speed, Aspect, Info }
 
 /** The player, as macOS's PlayerView on a phone: full screen in landscape,
  *  the Back pill, title and track menus above, the thin amber seek bar and
@@ -126,22 +131,6 @@ fun PlayerScreen(request: PlayRequest) {
     var scrub by remember { mutableStateOf<Double?>(null) }
     var endOverlay by remember { mutableStateOf(false) }
     val latest by rememberUpdatedState(state)
-
-    // Full screen, landscape, screen kept on; all restored on the way out.
-    DisposableEffect(Unit) {
-        val window = activity.window
-        val insets = WindowCompat.getInsetsController(window, window.decorView)
-        val orientation = activity.requestedOrientation
-        activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-        insets.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        insets.hide(WindowInsetsCompat.Type.systemBars())
-        window.decorView.keepScreenOn = true
-        onDispose {
-            insets.show(WindowInsetsCompat.Type.systemBars())
-            window.decorView.keepScreenOn = false
-            activity.requestedOrientation = orientation
-        }
-    }
 
     fun report() {
         val s = latest
@@ -291,6 +280,7 @@ fun PlayerScreen(request: PlayRequest) {
         panel?.let { current ->
             SidePanel(
                 when (current) {
+                    Panel.Channels -> "Chaînes"
                     Panel.Audio -> "Audio"
                     Panel.Subtitles -> "Sous-titres"
                     Panel.Speed -> "Vitesse"
@@ -301,6 +291,7 @@ fun PlayerScreen(request: PlayRequest) {
                 Modifier.align(Alignment.CenterEnd),
             ) {
                 when (current) {
+                    Panel.Channels -> ChannelList(request)
                     Panel.Audio -> state.audio.forEach { t ->
                         Option(t.label, t.codec?.uppercase(), t.id == state.audioId) { player.selectAudio(t.id) }
                     }
@@ -364,8 +355,12 @@ private fun TopBar(request: PlayRequest, state: PlayerState, modifier: Modifier,
         if (request.isLive) LiveBadge()
         Column(Modifier.weight(1f)) {
             Text(request.title, style = Type.label(14, FontWeight.Bold), color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            request.subtitle?.let { Text(it, style = Type.label(11, FontWeight.Medium), color = Color.White.copy(alpha = 0.7f), maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            val onNow = request.channel?.takeIf { request.isLive }?.let { EpgStore.current(it) }
+            (onNow?.let { "${it.timeRange} · ${it.title}" } ?: request.subtitle)?.let {
+                Text(it, style = Type.label(11, FontWeight.Medium), color = Color.White.copy(alpha = 0.7f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
         }
+        if (request.channel != null && request.playlist != null && request.isLive) GlassIcon(Icons.AutoMirrored.Filled.List, "Chaînes") { onPanel(Panel.Channels) }
         if (state.audio.size > 1) GlassIcon(Icons.Filled.Audiotrack, "Audio") { onPanel(Panel.Audio) }
         GlassIcon(Icons.Filled.Subtitles, "Sous-titres") { onPanel(Panel.Subtitles) }
         if (!request.isLive) GlassIcon(Icons.Filled.Speed, "Vitesse") { onPanel(Panel.Speed) }
@@ -625,4 +620,54 @@ private fun Pill(label: String, icon: ImageVector, primary: Boolean, enabled: Bo
 private fun format(seconds: Double): String {
     val s = seconds.toLong().coerceAtLeast(0)
     return if (s >= 3600) "%d:%02d:%02d".format(s / 3600, s / 60 % 60, s % 60) else "%d:%02d".format(s / 60, s % 60)
+}
+
+/** Live TV: the bouquet picker, set to the current channel's, and its
+ *  channels with the one playing marked; a tap zaps. */
+@Composable
+private fun ChannelList(request: PlayRequest) {
+    val p = VeltrioTheme.palette
+    val playlist = request.playlist ?: return
+    val playing = request.channel ?: return
+    var channels by remember { mutableStateOf(IptvStore.loaded(playlist).orEmpty()) }
+    LaunchedEffect(Unit) { if (channels.isEmpty()) channels = runCatching { IptvStore.items(playlist) }.getOrDefault(emptyList()) }
+    val groups = remember(channels) { channels.map { it.group }.distinct() }
+    var group by remember { mutableStateOf(playing.group) }
+    var open by remember { mutableStateOf(false) }
+    Column(Modifier.padding(horizontal = 20.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text("BOUQUET", style = Type.eyebrow(9, 0.18f), color = Color.White.copy(alpha = 0.5f))
+        Box {
+            Row(
+                Modifier.fillMaxWidth().border(1.dp, Color.White.copy(alpha = 0.25f)).clickable { open = true }.padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(group.ifEmpty { "Sans groupe" }, style = Type.label(13, FontWeight.SemiBold), color = Color.White, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Icon(Icons.Filled.ArrowDropDown, null, tint = Color.White)
+            }
+            DropdownMenu(open, { open = false }) {
+                groups.forEach { g ->
+                    DropdownMenuItem({ Text("$g  (${channels.count { it.group == g }})", fontWeight = if (g == group) FontWeight.Bold else FontWeight.Normal) }, {
+                        group = g
+                        open = false
+                    })
+                }
+            }
+        }
+        Text("EN COURS · ${playing.numberLabel} ${playing.name}".trim(), style = Type.mono(10, FontWeight.SemiBold), color = p.accent, modifier = Modifier.padding(top = 6.dp))
+    }
+    channels.filter { it.group == group }.forEach { c ->
+        val current = c.id == playing.id
+        Row(
+            Modifier.fillMaxWidth().background(if (current) p.accent.copy(alpha = 0.18f) else Color.Transparent)
+                .clickable(enabled = !current) { Nav.zap(PlayRequest.forChannel(c, playlist)) }.padding(horizontal = 20.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(c.numberLabel, style = Type.mono(10), color = if (current) p.accent else Color.White.copy(alpha = 0.5f), modifier = Modifier.width(30.dp))
+            Column(Modifier.weight(1f)) {
+                Text(c.name, style = Type.label(13, if (current) FontWeight.Bold else FontWeight.Normal), color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                EpgStore.current(c)?.let { Text(it.title, style = Type.caption(11), color = Color.White.copy(alpha = 0.55f), maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            }
+            if (current) Icon(Icons.Filled.PlayArrow, "En cours", Modifier.size(14.dp), tint = p.accent)
+        }
+    }
 }

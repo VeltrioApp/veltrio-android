@@ -47,30 +47,45 @@ import app.veltrio.android.ui.PosterCard
 import app.veltrio.android.ui.SectionHeader
 import app.veltrio.shared.CatalogRow
 import app.veltrio.shared.Core
+import app.veltrio.shared.PlayRequest
+import app.veltrio.shared.iptv.ChannelItem
+import app.veltrio.shared.iptv.ChannelKind
+import app.veltrio.shared.iptv.IptvStore
+import app.veltrio.shared.iptv.PlaylistRef
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import app.veltrio.shared.ui.Spacing
 import app.veltrio.shared.ui.Type
 import app.veltrio.shared.ui.VeltrioTheme
 import kotlinx.coroutines.delay
 
-/** Search across the addons' searchable catalogs, as macOS: a big serif
- *  field, then one row per catalog that answered. (IPTV channels and
- *  provider titles join with the IPTV lot.) */
+/** Search across the addons' searchable catalogs and the IPTV sources, as
+ *  macOS: a big serif field, then the matching channels and provider
+ *  titles, and one row per catalog that answered. */
 @Composable
 fun SearchScreen() {
     val p = VeltrioTheme.palette
     var query by rememberSaveable { mutableStateOf("") }
     var rows by remember { mutableStateOf<List<CatalogRow>?>(null) }
+    // IPTV channels, films and series matching, as macOS lists them under the addons.
+    var channels by remember { mutableStateOf<List<Pair<PlaylistRef, ChannelItem>>>(emptyList()) }
     var searching by remember { mutableStateOf(false) }
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
     LaunchedEffect(query) {
         if (query.trim().length < 2) {
             rows = null
+            channels = emptyList()
             return@LaunchedEffect
         }
         delay(350) // typing: wait for a pause
         searching = true
-        rows = Core.search(query.trim())
+        val q = query.trim()
+        coroutineScope {
+            val iptv = async { IptvStore.search(q) }
+            rows = Core.search(q)
+            channels = iptv.await()
+        }
         searching = false
     }
     Column(Modifier.fillMaxSize().background(p.background).statusBarsPadding()) {
@@ -104,16 +119,31 @@ fun SearchScreen() {
                 current == null -> item {
                     Text("Tapez au moins deux lettres : films et séries de tous vos addons.", style = Type.body(13), color = p.textTertiary, modifier = Modifier.padding(Spacing.lg))
                 }
-                current.isEmpty() -> item {
+                current.isEmpty() && channels.isEmpty() -> item {
                     Text("Rien trouvé pour « ${query.trim()} ».", style = Type.body(14), color = p.textSecondary, modifier = Modifier.padding(Spacing.lg))
                 }
-                else -> items(current) { row ->
+                else -> {
+                    if (channels.isNotEmpty()) item {
+                        Column(Modifier.padding(bottom = Spacing.lg)) {
+                            SectionHeader(null, "Direct", "IPTV · ${channels.size}", Modifier.padding(horizontal = Spacing.lg))
+                            Spacer(Modifier.height(12.dp))
+                            LazyRow(contentPadding = PaddingValues(horizontal = Spacing.lg), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                items(channels, key = { (pl, c) -> pl.id + c.id }) { (pl, c) ->
+                                    PosterCard(c.name, c.logo, listOf(pl.name, c.group).joinToString(" · "), logo = c.kind == ChannelKind.Live) {
+                                        if (c.kind == ChannelKind.Series) Nav.openIptvSeries(pl, c) else Nav.play(PlayRequest.forChannel(c, pl))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    items(current) { row ->
                     Column(Modifier.padding(bottom = Spacing.lg)) {
                         SectionHeader(null, row.title, row.subtitle, Modifier.padding(horizontal = Spacing.lg))
                         Spacer(Modifier.height(12.dp))
                         LazyRow(contentPadding = PaddingValues(horizontal = Spacing.lg), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             items(row.items, key = { it.id }) { PosterCard(it.title, it.posterUrl, it.subtitle) { openPoster(it) } }
                         }
+                    }
                     }
                 }
             }

@@ -24,6 +24,7 @@ object Storage {
         PlayerPrefs.load()
         Core.init(context)
         WatchStore.init()
+        app.veltrio.shared.iptv.IptvStore.init()
     }
 
     fun <T> load(file: String, serializer: KSerializer<T>, fallback: T): T = try {

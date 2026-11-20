@@ -37,15 +37,23 @@ import coil3.compose.AsyncImage
 /** A 2:3 poster with its title and a mono subtitle, as macOS's PosterCard. */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-fun PosterCard(title: String, posterUrl: String?, subtitle: String?, width: Dp = 128.dp, progress: Float? = null, onLongClick: (() -> Unit)? = null, onClick: () -> Unit) {
+fun PosterCard(
+    title: String, posterUrl: String?, subtitle: String?, width: Dp = 128.dp, progress: Float? = null,
+    /** A channel logo: shown whole on a square, not cropped to a poster. */
+    logo: Boolean = false,
+    onLongClick: (() -> Unit)? = null, onClick: () -> Unit,
+) {
     val p = VeltrioTheme.palette
     Column(Modifier.width(width).combinedClickable(onClick = onClick, onLongClick = onLongClick), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f).background(p.surface).border(1.dp, p.border)) {
+        Box(Modifier.fillMaxWidth().aspectRatio(if (logo) 1f else 2f / 3f).background(p.surface).border(1.dp, p.border)) {
             Text(
                 title.take(1).uppercase(), style = Type.displaySerif(28), color = p.textQuaternary,
                 modifier = Modifier.align(Alignment.Center),
             )
-            AsyncImage(posterUrl, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            AsyncImage(
+                posterUrl, null, Modifier.fillMaxSize().padding(if (logo) 14.dp else 0.dp),
+                contentScale = if (logo) ContentScale.Fit else ContentScale.Crop,
+            )
             if (progress != null && progress > 0f) {
                 Box(Modifier.align(Alignment.BottomStart).fillMaxWidth(progress).height(3.dp).background(p.accent))
             }

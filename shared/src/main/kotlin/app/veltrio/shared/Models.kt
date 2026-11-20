@@ -219,4 +219,28 @@ data class PlayRequest(
     /** Series: what comes next ("S1E3 · Titre") and how to get its request. */
     val nextLabel: String? = null,
     val next: (suspend () -> PlayRequest?)? = null,
-)
+    /** Live TV: the channel and its playlist, for the channel list and zapping. */
+    val channel: app.veltrio.shared.iptv.ChannelItem? = null,
+    val playlist: app.veltrio.shared.iptv.PlaylistRef? = null,
+) {
+    companion object {
+        /** A channel, or an Xtream film, from a playlist. Films get a
+         *  scrubber and progress; live channels neither. */
+        fun forChannel(c: app.veltrio.shared.iptv.ChannelItem, playlist: app.veltrio.shared.iptv.PlaylistRef?): PlayRequest {
+            val live = c.kind == app.veltrio.shared.iptv.ChannelKind.Live && !c.isFile
+            return PlayRequest(
+                title = c.name,
+                subtitle = c.group.takeIf { it.isNotEmpty() },
+                url = c.streamUrl,
+                isLive = live,
+                // Provider films and episodes resume like any title ("iptv"
+                // never shows in Continue watching: there's no page to reopen).
+                contentType = if (c.kind == app.veltrio.shared.iptv.ChannelKind.Live) null else "iptv",
+                contentId = if (c.kind == app.veltrio.shared.iptv.ChannelKind.Live) null else c.id,
+                poster = c.logo,
+                channel = c,
+                playlist = playlist,
+            )
+        }
+    }
+}

@@ -41,6 +41,8 @@ object Nav {
     fun openTitle(request: DetailRequest) = controller.navigate("detail/${keep(request)}")
     fun openCatalog(request: CatalogRequest) = controller.navigate("catalog/${keep(request)}")
     fun play(request: PlayRequest) = controller.navigate("player/${keep(request)}")
+    fun openIptvSeries(playlist: app.veltrio.shared.iptv.PlaylistRef, series: app.veltrio.shared.iptv.ChannelItem) =
+        controller.navigate("iptvseries/${keep(playlist to series)}")
     fun search() = controller.navigate("search")
     fun settings() = controller.navigate("settings")
     fun back() = controller.popBackStack()
