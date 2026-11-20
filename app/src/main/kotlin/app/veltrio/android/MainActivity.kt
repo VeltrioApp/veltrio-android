@@ -98,6 +98,10 @@ class MainActivity : ComponentActivity() {
                             val (playlist, series) = Nav.arg<Pair<app.veltrio.shared.iptv.PlaylistRef, app.veltrio.shared.iptv.ChannelItem>>(it.arguments?.getString("key"))!!
                             app.veltrio.android.screens.IptvSeriesScreen(playlist, series)
                         }
+                        composable("serverseries/{key}") {
+                            val (server, item) = Nav.arg<Pair<app.veltrio.shared.MediaServer, app.veltrio.shared.MediaLibraryItem>>(it.arguments?.getString("key"))!!
+                            app.veltrio.android.screens.MediaServerSeriesScreen(server, item)
+                        }
                         composable("search") { SearchScreen() }
                         composable("settings") { SettingsScreen() }
                     }

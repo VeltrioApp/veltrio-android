@@ -58,6 +58,8 @@ import app.veltrio.android.ui.LoadingRow
 import app.veltrio.android.ui.PrimaryButton
 import app.veltrio.shared.Core
 import app.veltrio.shared.DebridService
+import app.veltrio.shared.DirectSources
+import kotlinx.coroutines.async
 import app.veltrio.shared.EpisodeItem
 import app.veltrio.shared.PlayRequest
 import app.veltrio.shared.StreamItem
@@ -99,12 +101,24 @@ fun DetailScreen(request: DetailRequest) {
         quality = "Tout"
         source = null
         loadJob = scope.launch {
+            // The user's own copies (media servers, IPTV provider) are looked
+            // up alongside and listed first once found.
+            val parts = id.split(':')
+            val direct = if (parts[0].startsWith("tt") && DirectSources.anyConfigured) async {
+                runCatching {
+                    DirectSources.find(
+                        parts[0], details?.name ?: request.name, details?.year?.take(4)?.toIntOrNull(),
+                        parts.getOrNull(1)?.toIntOrNull().takeIf { parts.size == 3 }, parts.getOrNull(2)?.toIntOrNull(),
+                    )
+                }.getOrDefault(emptyList())
+            } else null
             val fetched = Core.fetchStreams(request.type, id)
             streams = fetched
+            direct?.await()?.let { copies -> if (copies.isNotEmpty()) streams = copies + streams.orEmpty() }
             // Ask the debrid services what they have cached: ⚡ first.
             if (DebridService.anyConnected) {
                 DebridService.prefetch(fetched.mapNotNull { it.infoHash })
-                streams = fetched.sortedByDescending { it.cachedOn != null }
+                streams = streams.orEmpty().sortedWith(compareByDescending<StreamItem> { it.origin != null }.thenByDescending { it.cachedOn != null })
             }
         }
     }

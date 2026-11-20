@@ -126,7 +126,14 @@ fun SourcesScreen() {
                 Box(Modifier.padding(horizontal = Spacing.lg).fillMaxWidth().height(1.dp).background(p.border))
             }
         }
-        item { SectionHeader(4, "Suggérés", modifier = Modifier.padding(start = Spacing.lg, end = Spacing.lg, top = Spacing.xl)) }
+        item {
+            Column(Modifier.padding(start = Spacing.lg, end = Spacing.lg, top = Spacing.xl), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                SectionHeader(4, "Serveurs média", "Jellyfin · Emby · Plex")
+                Text("Votre bibliothèque apparaît dans la Collection, et ses copies en tête des flux d'un titre.", style = Type.body(13), color = p.textSecondary)
+                app.veltrio.shared.MediaServers.all.forEach { MediaServerCard(it) }
+            }
+        }
+        item { SectionHeader(5, "Suggérés", modifier = Modifier.padding(start = Spacing.lg, end = Spacing.lg, top = Spacing.xl)) }
         items(Core.suggestedAddons) { s ->
             val installed = Core.isInstalled(s.url)
             Row(Modifier.fillMaxWidth().padding(horizontal = Spacing.lg, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {

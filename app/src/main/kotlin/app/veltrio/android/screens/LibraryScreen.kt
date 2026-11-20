@@ -29,6 +29,16 @@ import app.veltrio.android.ui.Chip
 import app.veltrio.android.ui.PageHeader
 import app.veltrio.android.ui.PosterCard
 import app.veltrio.shared.WatchEntry
+import app.veltrio.shared.MediaLibraryItem
+import app.veltrio.shared.MediaLibrarySection
+import app.veltrio.shared.MediaServer
+import app.veltrio.shared.MediaServers
+import app.veltrio.android.Nav
+import app.veltrio.android.ui.LoadingRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import app.veltrio.shared.WatchStore
 import app.veltrio.shared.ui.Spacing
 import app.veltrio.shared.ui.Type
@@ -42,6 +52,84 @@ private val types = listOf("all" to "Tous les types", "movie" to "Films", "serie
  *  with the servers lot.) */
 @Composable
 fun LibraryScreen() {
+    MediaServers.version.collectAsState().value
+    val servers = MediaServers.connected
+    val kind = Nav.libraryServer?.takeIf { k -> servers.any { it.kind == k } }
+    Column(Modifier.fillMaxSize()) {
+        if (servers.isNotEmpty()) {
+            Row(Modifier.horizontalScroll(rememberScrollState()).padding(start = Spacing.lg, end = Spacing.lg, top = Spacing.md), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Chip("Enregistrés", kind == null) { Nav.libraryServer = null }
+                servers.forEach { s -> Chip(s.name, s.kind == kind) { Nav.libraryServer = s.kind } }
+            }
+        }
+        if (kind != null) ServerLibrary(serverOf(kind)) else SavedLibrary()
+    }
+}
+
+/** A media server's libraries: section chips, then its films and series,
+ *  50 at a time. */
+@Composable
+private fun ServerLibrary(server: MediaServer) {
+    val p = VeltrioTheme.palette
+    var sections by remember(server) { mutableStateOf<List<MediaLibrarySection>?>(null) }
+    var section by remember(server) { mutableStateOf<MediaLibrarySection?>(null) }
+    var items by remember(server, section) { mutableStateOf<List<MediaLibraryItem>>(emptyList()) }
+    var total by remember(server, section) { mutableStateOf(-1) }
+    var loading by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val state by server.state.collectAsState()
+    LaunchedEffect(server) {
+        sections = server.sections()
+        section = sections?.firstOrNull()
+    }
+    fun loadMore() {
+        val sec = section ?: return
+        if (loading) return
+        loading = true
+        scope.launch {
+            val page = server.items(sec, items.size, 50)
+            if (sec == section) {
+                items = items + page.items
+                total = page.total
+            }
+            loading = false
+        }
+    }
+    LaunchedEffect(section) { if (section != null && items.isEmpty()) loadMore() }
+    LazyVerticalGrid(
+        GridCells.Adaptive(108.dp), Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = Spacing.lg, end = Spacing.lg, top = Spacing.md, bottom = Spacing.xl),
+        horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(18.dp),
+    ) {
+        item(span = { GridItemSpan(maxLineSpan) }) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                PageHeader("${server.name} · ${state.user ?: ""}", section?.name ?: server.name, if (total >= 0) "$total titres" else null, inset = 0.dp)
+                sections?.takeIf { it.size > 1 }?.let { list ->
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        list.forEach { s -> Chip(s.name, s == section) { section = s } }
+                    }
+                }
+            }
+        }
+        when {
+            sections == null || (items.isEmpty() && loading) -> item(span = { GridItemSpan(maxLineSpan) }) { LoadingRow() }
+            sections!!.isEmpty() -> item(span = { GridItemSpan(maxLineSpan) }) {
+                Text("Ce serveur n'a pas de bibliothèque de films ou de séries, ou ne répond pas.", style = Type.body(14), color = p.textSecondary)
+            }
+            items.isEmpty() && total == 0 -> item(span = { GridItemSpan(maxLineSpan) }) {
+                Text("Cette bibliothèque ne contient aucun film ni aucune série.", style = Type.body(14), color = p.textSecondary)
+            }
+        }
+        items(items, key = { it.id }) { item -> PosterCard(item.title, item.posterUrl, item.subtitle, width = 200.dp) { openServerItem(server, item) } }
+        if (items.isNotEmpty() && items.size < total) item(span = { GridItemSpan(maxLineSpan) }) {
+            LaunchedEffect(items.size) { loadMore() }
+            LoadingRow()
+        }
+    }
+}
+
+@Composable
+private fun SavedLibrary() {
     val p = VeltrioTheme.palette
     val entries by WatchStore.entries.collectAsState()
     var filter by rememberSaveable { mutableStateOf("all") }

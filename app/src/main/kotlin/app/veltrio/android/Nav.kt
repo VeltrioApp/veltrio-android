@@ -43,6 +43,15 @@ object Nav {
     fun play(request: PlayRequest) = controller.navigate("player/${keep(request)}")
     fun openIptvSeries(playlist: app.veltrio.shared.iptv.PlaylistRef, series: app.veltrio.shared.iptv.ChannelItem) =
         controller.navigate("iptvseries/${keep(playlist to series)}")
+    fun openServerSeries(server: app.veltrio.shared.MediaServer, item: app.veltrio.shared.MediaLibraryItem) =
+        controller.navigate("serverseries/${keep(server to item)}")
+
+    /** The Collection, on a media server's tab. */
+    var libraryServer by androidx.compose.runtime.mutableStateOf<app.veltrio.shared.MediaServerKind?>(null)
+    fun showLibrary(kind: app.veltrio.shared.MediaServerKind) {
+        libraryServer = kind
+        showTab(1)
+    }
     fun search() = controller.navigate("search")
     fun settings() = controller.navigate("settings")
     fun back() = controller.popBackStack()
