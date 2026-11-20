@@ -207,7 +207,7 @@ fun DetailScreen(request: DetailRequest) {
 
     LazyColumn(Modifier.fillMaxSize().background(p.background), contentPadding = PaddingValues(bottom = Spacing.xl)) {
         item {
-            Box(Modifier.hero(1.1f)) {
+            Box(Modifier.hero(1.7f, 240.dp)) {
                 AsyncImage(d?.background ?: request.background ?: request.poster, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                 Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to p.background.copy(alpha = 0.35f), 0.4f to p.background.copy(alpha = 0.15f), 1f to p.background)))
                 Row(
@@ -224,7 +224,7 @@ fun DetailScreen(request: DetailRequest) {
                         Eyebrow((d?.addon ?: request.addon).name)
                         Eyebrow("· " + Core.typeLabel(request.type), p.textTertiary)
                     }
-                    Text(d?.name ?: request.name, style = Type.displaySerif(38), color = p.textPrimary, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                    Text(d?.name ?: request.name, style = Type.displaySerif(32), color = p.textPrimary, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
             }
         }
