@@ -66,6 +66,8 @@ import app.veltrio.shared.AppTheme
 import app.veltrio.shared.Core
 import app.veltrio.shared.DebridAccount
 import app.veltrio.shared.DebridService
+import app.veltrio.shared.DownloadManager
+import app.veltrio.shared.DownloadStatus
 import app.veltrio.shared.PlayerPrefs
 import app.veltrio.shared.ui.Spacing
 import app.veltrio.shared.ui.Type
@@ -277,9 +279,51 @@ private fun StorageSection() {
     }
 }
 
-/** Filled in by the downloads lot. */
+/** Offline copies: progress, pause / resume, play, delete. */
 @Composable
-private fun DownloadsSection() {}
+private fun DownloadsSection() {
+    val p = VeltrioTheme.palette
+    val items by DownloadManager.items.collectAsState()
+    Text("TÉLÉCHARGEMENTS", style = Type.eyebrow(9, 0.18f), color = p.textTertiary)
+    if (items.isEmpty()) {
+        Body("Aucun téléchargement. Appui long sur un flux, dans la fiche d'un titre, puis « Télécharger pour regarder hors ligne ».")
+        return
+    }
+    items.sortedByDescending { it.createdAt }.forEach { d ->
+        Column(Modifier.fillMaxWidth().border(1.dp, p.border).padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(d.title, style = Type.title(15), color = p.textPrimary)
+            d.subtitle?.let { Text(it, style = Type.caption(11), color = p.textTertiary) }
+            Box(Modifier.fillMaxWidth().height(3.dp).background(p.hairline)) {
+                Box(Modifier.fillMaxWidth(d.progress.toFloat()).height(3.dp).background(if (d.status == DownloadStatus.Failed) p.danger else p.accent))
+            }
+            val ctx = LocalContext.current
+            Text(
+                when (d.status) {
+                    DownloadStatus.Downloading -> "${(d.progress * 100).toInt()} % · ${android.text.format.Formatter.formatShortFileSize(ctx, d.bytesDownloaded)}"
+                    DownloadStatus.Paused -> "En pause · ${(d.progress * 100).toInt()} %"
+                    DownloadStatus.Completed -> "Prêt · ${android.text.format.Formatter.formatShortFileSize(ctx, d.bytesDownloaded)}"
+                    DownloadStatus.Failed -> d.error ?: "Échec"
+                },
+                style = Type.mono(11), color = if (d.status == DownloadStatus.Failed) p.danger else p.textSecondary,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                when (d.status) {
+                    DownloadStatus.Downloading -> GhostButton("Pause") { DownloadManager.pause(d.id) }
+                    DownloadStatus.Paused, DownloadStatus.Failed -> GhostButton("Reprendre") { DownloadManager.resume(d.id) }
+                    DownloadStatus.Completed -> PrimaryButton("Lire") {
+                        Nav.play(
+                            app.veltrio.shared.PlayRequest(
+                                title = d.title, subtitle = d.subtitle, url = d.localPath, contentType = d.contentType, contentId = d.contentId,
+                                videoId = d.id.takeIf { d.season != null }, season = d.season, episode = d.episode, poster = d.poster,
+                            ),
+                        )
+                    }
+                }
+                GhostButton("Supprimer", color = p.danger) { DownloadManager.remove(d.id) }
+            }
+        }
+    }
+}
 
 @Composable
 private fun AccountsSection() {

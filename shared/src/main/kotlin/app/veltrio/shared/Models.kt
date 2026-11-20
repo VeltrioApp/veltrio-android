@@ -115,9 +115,9 @@ data class TitleDetails(
 
     companion object {
         fun from(m: Meta, addon: AddonInfo) = TitleDetails(
-            id = m.id, type = m.type, name = m.name, poster = m.poster, background = m.background, logo = m.logo,
-            description = m.description, rating = m.imdbRating, year = m.releaseInfo, runtime = m.runtime,
-            genres = m.genres, cast = m.cast, director = m.director, writer = m.writer,
+            id = m.id, type = m.type, name = m.name.unescaped(), poster = m.poster, background = m.background, logo = m.logo,
+            description = m.description?.unescaped(), rating = m.imdbRating, year = m.releaseInfo, runtime = m.runtime,
+            genres = m.genres, cast = m.cast.map { it.unescaped() }, director = m.director.map { it.unescaped() }, writer = m.writer.map { it.unescaped() },
             episodes = m.videos.map { v ->
                 EpisodeItem(
                     id = v.id,
@@ -186,6 +186,16 @@ class StreamItem(
             }
         }
 
+    companion object {
+        /** A copy downloaded for offline playback: played from disk. */
+        fun local(d: DownloadItem) = StreamItem(
+            CoreStream(d.title, listOfNotNull(d.subtitle, "${size(d.bytesDownloaded)} sur cet appareil").joinToString(" · "), null, StreamSource.Url(d.localPath), emptyList(), null),
+            "Hors ligne", origin = "HORS LIGNE", localPath = d.localPath,
+        )
+
+        private fun size(bytes: Long) = if (bytes >= 1L shl 30) "%.1f Go".format(bytes / (1L shl 30).toDouble()) else "${maxOf(1, bytes shr 20)} Mo"
+    }
+
     /** The debrid service that has this torrent cached, if any (the ⚡ badge). */
     val cachedOn get() = infoHash?.let { DebridService.cachedOn(it) }
     val isCached get() = cachedOn != null
@@ -234,6 +244,18 @@ data class PlayRequest(
                 channel = c,
                 playlist = playlist,
             )
+        }
+    }
+}
+
+/** Metadata sometimes arrives HTML-escaped ("Judith O&apos;Dea"). */
+internal fun String.unescaped(): String {
+    if ('&' !in this) return this
+    return Regex("&(#x?[0-9A-Fa-f]+|apos|quot|amp|lt|gt|nbsp);").replace(this) { m ->
+        when (val e = m.groupValues[1]) {
+            "apos" -> "'"; "quot" -> "\""; "amp" -> "&"; "lt" -> "<"; "gt" -> ">"; "nbsp" -> "\u00A0"
+            else -> (if (e.startsWith("#x", true)) e.drop(2).toIntOrNull(16) else e.drop(1).toIntOrNull())
+                ?.let { String(Character.toChars(it)) } ?: m.value
         }
     }
 }

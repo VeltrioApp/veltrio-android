@@ -58,6 +58,8 @@ import app.veltrio.android.ui.LoadingRow
 import app.veltrio.android.ui.PrimaryButton
 import app.veltrio.shared.Core
 import app.veltrio.shared.DebridService
+import app.veltrio.shared.DownloadManager
+import androidx.compose.foundation.combinedClickable
 import app.veltrio.shared.DirectSources
 import kotlinx.coroutines.async
 import app.veltrio.shared.EpisodeItem
@@ -113,8 +115,10 @@ fun DetailScreen(request: DetailRequest) {
                 }.getOrDefault(emptyList())
             } else null
             val fetched = Core.fetchStreams(request.type, id)
-            streams = fetched
-            direct?.await()?.let { copies -> if (copies.isNotEmpty()) streams = copies + streams.orEmpty() }
+            // A copy downloaded for offline playback comes first.
+            val offline = DownloadManager.localFile(id)?.let { listOf(StreamItem.local(DownloadManager.item(id)!!)) }.orEmpty()
+            streams = offline + fetched
+            direct?.await()?.let { copies -> if (copies.isNotEmpty()) streams = offline + copies + fetched }
             // Ask the debrid services what they have cached: ⚡ first.
             if (DebridService.anyConnected) {
                 DebridService.prefetch(fetched.mapNotNull { it.infoHash })
@@ -182,6 +186,14 @@ fun DetailScreen(request: DetailRequest) {
             return
         }
         Nav.play(playRequest(stream, episode))
+    }
+
+    // Android 13+: downloads show their progress in a notification.
+    val notifications = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) {}
+    fun askNotifications() {
+        if (android.os.Build.VERSION.SDK_INT >= 33 &&
+            context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) notifications.launch(android.Manifest.permission.POST_NOTIFICATIONS)
     }
 
     val visible = streams.orEmpty().filter {
@@ -333,7 +345,16 @@ fun DetailScreen(request: DetailRequest) {
                         style = Type.body(13), color = p.textSecondary, modifier = Modifier.padding(Spacing.lg),
                     )
                 }
-                else -> items(visible) { StreamRow(it) { play(it) } }
+                else -> items(visible) { stream ->
+                    StreamRow(
+                        stream,
+                        onDownload = if (stream.localPath == null && Core.externalUrl(stream) == null) ({
+                            askNotifications()
+                            val videoId = episode?.id ?: d?.id ?: request.id
+                            DownloadManager.start(videoId, playRequest(stream, episode).copy(next = null, nextLabel = null))
+                        }) else null,
+                    ) { play(stream) }
+                }
             }
         }
     }
@@ -377,10 +398,19 @@ private fun EpisodeRow(request: DetailRequest, ep: EpisodeItem, onClick: () -> U
     }
 }
 
+/** A stream; a long press offers to download it for offline playback. */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-private fun StreamRow(stream: StreamItem, onClick: () -> Unit) {
+private fun StreamRow(stream: StreamItem, onDownload: (() -> Unit)? = null, onClick: () -> Unit) {
     val p = VeltrioTheme.palette
-    Column(Modifier.fillMaxWidth().clickable(onClick = onClick)) {
+    var menu by remember { mutableStateOf(false) }
+    androidx.compose.material3.DropdownMenu(menu, { menu = false }) {
+        androidx.compose.material3.DropdownMenuItem({ Text("Télécharger pour regarder hors ligne") }, {
+            menu = false
+            onDownload?.invoke()
+        })
+    }
+    Column(Modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = onDownload?.let { { menu = true } })) {
         Row(Modifier.padding(horizontal = Spacing.lg, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             Column(Modifier.width(64.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Text(stream.quality, style = Type.mono(13, FontWeight.Bold), color = p.accentText)

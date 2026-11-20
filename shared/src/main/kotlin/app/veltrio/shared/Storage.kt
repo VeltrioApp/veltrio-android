@@ -25,6 +25,7 @@ object Storage {
         Core.init(context)
         WatchStore.init()
         app.veltrio.shared.iptv.IptvStore.init()
+        DownloadManager.init(context)
     }
 
     fun <T> load(file: String, serializer: KSerializer<T>, fallback: T): T = try {

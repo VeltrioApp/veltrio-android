@@ -36,6 +36,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.AspectRatio
+import androidx.compose.material.icons.filled.Cast
 import androidx.compose.material.icons.filled.Audiotrack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
@@ -91,6 +92,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import app.veltrio.android.Nav
 import app.veltrio.shared.AddonSubtitle
+import app.veltrio.shared.ChromecastService
 import app.veltrio.shared.Core
 import app.veltrio.shared.PlayerPrefs
 import app.veltrio.shared.Scrobbler
@@ -109,7 +111,7 @@ import kotlinx.coroutines.launch
 private val speeds = listOf(0.5, 0.75, 1.0, 1.25, 1.5, 2.0)
 private val aspects = listOf("fit" to "Adapter", "fill" to "Remplir l'écran", "stretch" to "Étirer")
 
-private enum class Panel { Channels, Audio, Subtitles, Speed, Aspect, Info }
+private enum class Panel { Channels, Audio, Subtitles, Speed, Aspect, Cast, Info }
 
 /** The player, as macOS's PlayerView on a phone: full screen in landscape,
  *  the Back pill, title and track menus above, the thin amber seek bar and
@@ -124,6 +126,13 @@ fun PlayerScreen(request: PlayRequest) {
     val state by player.state.collectAsState()
     var resolveError by remember { mutableStateOf<String?>(null) }
     var resolving by remember { mutableStateOf(true) }
+    // The URL being played, for Chromecast (which fetches it itself).
+    var resolvedUrl by remember { mutableStateOf<String?>(null) }
+    val cast by ChromecastService.state.collectAsState()
+    DisposableEffect(Unit) {
+        ChromecastService.startDiscovery(context)
+        onDispose { ChromecastService.stopDiscovery() }
+    }
     var attempt by remember { mutableIntStateOf(0) }
     var controls by remember { mutableStateOf(true) }
     var touched by remember { mutableIntStateOf(0) }
@@ -167,6 +176,7 @@ fun PlayerScreen(request: PlayRequest) {
             val url = request.url ?: Core.resolve(request.stream!!, request.season, request.episode)
             val start = if (request.isLive || request.contentType == null || request.contentId == null) 0.0
             else WatchStore.resumePosition(request.contentType!!, request.contentId!!, request.videoId)
+            resolvedUrl = url
             player.load(url, start)
         } catch (e: Exception) {
             resolveError = Core.humanize(e)
@@ -291,6 +301,7 @@ fun PlayerScreen(request: PlayRequest) {
                     Panel.Subtitles -> "Sous-titres"
                     Panel.Speed -> "Vitesse"
                     Panel.Aspect -> "Format de l'image"
+                    Panel.Cast -> "Caster"
                     Panel.Info -> "Infos média"
                 },
                 onClose = { panel = null },
@@ -319,6 +330,12 @@ fun PlayerScreen(request: PlayRequest) {
                     Panel.Aspect -> aspects.forEach { (key, label) ->
                         Option(label, null, key == aspect) { aspect = key; player.setAspect(key) }
                     }
+                    Panel.Cast -> CastList(resolvedUrl, cast) { device ->
+                        val s = player.state.value
+                        player.setPaused(true)
+                        ChromecastService.cast(device, resolvedUrl!!, request.title, request.poster ?: request.background, request.isLive, s.position)
+                        panel = null
+                    }
                     Panel.Info -> {
                         InfoLine("Résolution", if (state.width > 0) "${state.width} × ${state.height}" else "—")
                         InfoLine("Vidéo", state.videoCodec ?: "—")
@@ -328,6 +345,12 @@ fun PlayerScreen(request: PlayRequest) {
                         request.stream?.let { InfoLine("Source", it.addonName) }
                     }
                 }
+            }
+        }
+
+        if (cast.state != ChromecastService.CastState.Idle) {
+            CastOverlay(cast) {
+                ChromecastService.stop()
             }
         }
 
@@ -371,6 +394,7 @@ private fun TopBar(request: PlayRequest, state: PlayerState, modifier: Modifier,
         GlassIcon(Icons.Filled.Subtitles, "Sous-titres") { onPanel(Panel.Subtitles) }
         if (!request.isLive) GlassIcon(Icons.Filled.Speed, "Vitesse") { onPanel(Panel.Speed) }
         GlassIcon(Icons.Filled.AspectRatio, "Format") { onPanel(Panel.Aspect) }
+        GlassIcon(Icons.Filled.Cast, "Caster") { onPanel(Panel.Cast) }
         GlassIcon(Icons.Outlined.Info, "Infos média") { onPanel(Panel.Info) }
     }
 }
@@ -675,5 +699,46 @@ private fun ChannelList(request: PlayRequest) {
             }
             if (current) Icon(Icons.Filled.PlayArrow, "En cours", Modifier.size(14.dp), tint = p.accent)
         }
+    }
+}
+
+/** Chromecasts on the network; the local torrent server can't be cast. */
+@Composable
+private fun CastList(url: String?, state: ChromecastService.State, onPick: (ChromecastService.Device) -> Unit) {
+    val devices by ChromecastService.devices.collectAsState()
+    val p = VeltrioTheme.palette
+    when {
+        !ChromecastService.canCast(url) -> Text(
+            "Ce flux est lu depuis cet appareil (torrent) et ne peut pas être envoyé à un Chromecast. Un service debrid le rend castable.",
+            style = Type.label(13), color = Color.White.copy(alpha = 0.75f), modifier = Modifier.padding(20.dp),
+        )
+        devices.isEmpty() -> Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
+            Text("Recherche de Chromecasts sur le réseau…", style = Type.label(13), color = Color.White.copy(alpha = 0.75f))
+        }
+        else -> devices.forEach { d ->
+            Option(d.name, d.host, state.deviceName == d.name && state.isCasting) { onPick(d) }
+        }
+    }
+    state.error?.let { Text(it, style = Type.caption(12), color = p.danger, modifier = Modifier.padding(horizontal = 20.dp)) }
+}
+
+@Composable
+private fun CastOverlay(state: ChromecastService.State, onStop: () -> Unit) {
+    val p = VeltrioTheme.palette
+    Column(
+        Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.85f)),
+        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterVertically),
+    ) {
+        Icon(Icons.Filled.Cast, null, Modifier.size(46.dp), tint = p.accent)
+        Text(
+            when (state.state) {
+                ChromecastService.CastState.Connecting -> "Connexion à ${state.deviceName}…"
+                ChromecastService.CastState.Casting -> "Lecture sur ${state.deviceName}"
+                else -> state.error ?: "Échec du cast"
+            },
+            style = Type.displaySerif(24), color = Color.White, textAlign = TextAlign.Center,
+        )
+        Pill(if (state.state == ChromecastService.CastState.Failed) "Fermer" else "Arrêter", Icons.Filled.Stop, primary = true, onClick = onStop)
     }
 }

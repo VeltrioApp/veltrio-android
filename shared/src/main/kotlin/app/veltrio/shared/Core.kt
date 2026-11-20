@@ -243,7 +243,11 @@ object Core {
     private val streaming = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
 
     /** Size of the torrent cache, in bytes. */
-    fun torrentCacheSize(): Long = torrentCache.walkBottomUp().filter { it.isFile }.sumOf { it.length() }
+    /** Space the torrent cache takes, in bytes: the engine creates sparse
+     *  files of the whole torrent's size, so blocks are counted, not lengths. */
+    fun torrentCacheSize(): Long = torrentCache.walkBottomUp().filter { it.isFile }.sumOf {
+        runCatching { android.system.Os.stat(it.path).st_blocks * 512 }.getOrDefault(it.length())
+    }
 
     /** Frees the torrent cache; a torrent being played isn't touched. */
     fun clearTorrentCache() {
