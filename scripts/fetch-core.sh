@@ -28,4 +28,18 @@ fi
 
 rm -rf "$OUT" && mkdir -p "$OUT"
 unzip -q "$TMP/veltrio-core-android.zip" -d "$OUT"
+
+# UniFFI 0.29 declares an error's `message` field next to an override of
+# Exception.message: two properties of one name, which Kotlin 2.4 rejects.
+# Keep one: the field, overriding Exception.message.
+python3 - "$OUT/kotlin/uniffi/veltrio/veltrio.kt" <<'PY'
+import re, sys
+path = sys.argv[1]
+src = open(path, encoding="utf-8").read()
+src, n = re.subn(
+    r"val `message`: kotlin\.String\n(\s*)\) : (\w+)\(\) \{\n\s*override val message\n\s*get\(\) = \"message=\$\{ `message` \}\"\n",
+    r"override val `message`: kotlin.String\n\1) : \2() {\n", src)
+open(path, "w", encoding="utf-8").write(src)
+print(f"==> patched {n} error message properties")
+PY
 echo "==> core/ ready"

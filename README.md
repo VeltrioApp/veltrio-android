@@ -1,10 +1,28 @@
 # Veltrio for Android
 
-Not started yet. This repository holds the CI/CD and the pinned
-[veltrio-core](https://github.com/VeltrioApp/veltrio-core) release the
-app will build on.
+Port of the macOS app (same features, same editorial look: true black,
+tungsten amber, serif titles), in progress. Kotlin + Jetpack Compose,
+minSdk 26; the player is libmpv (`dev.jdtech.mpv:libmpv`), like macOS
+and Windows.
 
-**Planned stack:** Kotlin + Jetpack Compose, minSdk 26. Player: libmpv for Android (mpv-android) or Media3/ExoPlayer.
+Two Gradle modules:
+
+- `shared` — the core's bindings, storage, models, services (addons,
+  catalogs, streams, Collection…), the player and the design tokens. The
+  Android TV app ([veltrio-androidtv](https://github.com/VeltrioApp/veltrio-androidtv))
+  includes this repository as a git submodule and builds on this module.
+- `app` — the phone app.
+
+## Build
+
+JDK 21 (Android Studio's bundled one works:
+`JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"`),
+the Android SDK, then:
+
+```bash
+./scripts/fetch-core.sh
+./gradlew assembleDebug        # app/build/outputs/apk/debug/app-debug.apk
+```
 
 ## The core
 
@@ -13,7 +31,11 @@ app will build on.
 (gitignored). Needs [`gh`](https://cli.github.com) (signed in), or `VELTRIO_CORE_DIR=../veltrio-core` to
 build from a local checkout.
 
-In the app module: `sourceSets.main.jniLibs.srcDir("../core/jniLibs")`, `sourceSets.main.kotlin.srcDir("../core/kotlin")`, and depend on `net.java.dev.jna:jna:<version>@aar` (UniFFI's Kotlin bindings use JNA).
+The `shared` module compiles `core/jniLibs` and `core/kotlin` in, with
+`net.java.dev.jna:jna@aar` (UniFFI's Kotlin bindings use JNA).
+`fetch-core.sh` also patches the generated bindings: UniFFI 0.29 declares
+an error's `message` field next to an override of `Exception.message`,
+which Kotlin 2.4 rejects.
 
 ## CI/CD
 

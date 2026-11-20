@@ -24,7 +24,7 @@ jobs:
         if: hashFiles('settings.gradle.kts') != ''
         with:
           distribution: temurin
-          java-version: 17
+          java-version: 21
       - uses: gradle/actions/setup-gradle@v4
         if: hashFiles('settings.gradle.kts') != ''
       - name: Build and test
