@@ -129,6 +129,7 @@ fun SettingsScreen() {
                 val context = LocalContext.current
                 val version = remember { context.packageManager.getPackageInfo(context.packageName, 0).versionName }
                 Text(tr("Veltrio %s", version), style = Type.title(18), color = p.textPrimary)
+                UpdateRow()
                 Body(tr("Veltrio ne fournit aucun contenu : il affiche ce que renvoient les sources que vous installez."))
                 Body(tr("Lecture par libmpv (LGPL 2.1+, mpv.io) et FFmpeg (LGPL 2.1+)."))
             }
@@ -439,4 +440,33 @@ private fun CodeAccountCard(
         }
         AccountFooter(state)
     }
+}
+
+/** Updates from the GitHub releases (see [app.veltrio.shared.Updater]). */
+@Composable
+private fun UpdateRow() {
+    val p = VeltrioTheme.palette
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val state by app.veltrio.shared.Updater.state.collectAsState()
+    val step = state.step
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (step == app.veltrio.shared.Updater.Step.Ready) {
+            PrimaryButton(tr("Installer la version %s", state.newVersion ?: "")) { app.veltrio.shared.Updater.install(context) }
+        } else {
+            GhostButton(tr("Rechercher une mise à jour"), enabled = step != app.veltrio.shared.Updater.Step.Checking && step != app.veltrio.shared.Updater.Step.Downloading) {
+                scope.launch { app.veltrio.shared.Updater.check(context) }
+            }
+        }
+    }
+    val status = when (step) {
+        app.veltrio.shared.Updater.Step.Checking -> tr("Recherche…")
+        app.veltrio.shared.Updater.Step.UpToDate -> tr("Veltrio %s est à jour.", app.veltrio.shared.Updater.currentVersion(context))
+        app.veltrio.shared.Updater.Step.Downloading -> tr("Téléchargement de la version %s… %s %%", state.newVersion ?: "", (state.progress * 100).toInt())
+        app.veltrio.shared.Updater.Step.Ready -> tr("La version %s est prête : Android demande de confirmer l'installation.", state.newVersion ?: "")
+        app.veltrio.shared.Updater.Step.Failed -> state.error
+        app.veltrio.shared.Updater.Step.Development -> tr("Version de développement : les mises à jour concernent la version publiée sur GitHub.")
+        else -> null
+    }
+    status?.let { Text(it, style = Type.caption(12), color = if (step == app.veltrio.shared.Updater.Step.Failed) p.danger else p.textTertiary) }
 }

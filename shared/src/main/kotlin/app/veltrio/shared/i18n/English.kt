@@ -4,6 +4,15 @@ package app.veltrio.shared.i18n
  *  strings exactly as written in the code, placeholders included. */
 internal object English {
     val strings: Map<String, String> = mapOf(
+        "Installer la version %s" to "Install version %s",
+        "Rechercher une mise à jour" to "Check for updates",
+        "Recherche…" to "Checking…",
+        "Veltrio %s est à jour." to "Veltrio %s is up to date.",
+        "Téléchargement de la version %s… %s %%" to "Downloading version %s… %s %%",
+        "La version %s est prête : Android demande de confirmer l'installation." to "Version %s is ready: Android asks to confirm the installation.",
+        "Version de développement : les mises à jour concernent la version publiée sur GitHub." to "Development build: updates apply to the version published on GitHub.",
+        "La version %s n'a pas d'APK." to "Version %s has no APK.",
+        "GitHub a répondu %s." to "GitHub answered %s.",
         "%s Mo" to "%s MB",
         "Real-Debrid a refusé l'autorisation." to "Real-Debrid refused the authorization.",
         "Real-Debrid n'a pas accepté le magnet." to "Real-Debrid didn't accept the magnet.",
