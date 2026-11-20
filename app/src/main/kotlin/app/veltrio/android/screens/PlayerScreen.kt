@@ -93,6 +93,7 @@ import app.veltrio.android.Nav
 import app.veltrio.shared.AddonSubtitle
 import app.veltrio.shared.Core
 import app.veltrio.shared.PlayerPrefs
+import app.veltrio.shared.Scrobbler
 import app.veltrio.shared.SubtitleFetcher
 import app.veltrio.shared.PlayRequest
 import app.veltrio.shared.WatchStore
@@ -132,9 +133,12 @@ fun PlayerScreen(request: PlayRequest) {
     var endOverlay by remember { mutableStateOf(false) }
     val latest by rememberUpdatedState(state)
 
-    fun report() {
+    val scrobbler = remember { Scrobbler(request) }
+    fun report(closing: Boolean = false) {
         val s = latest
-        if (!request.isLive && s.loaded && s.duration > 0) WatchStore.reportProgress(request, s.position, s.duration)
+        if (request.isLive || !s.loaded || s.duration <= 0) return
+        WatchStore.reportProgress(request, s.position, s.duration)
+        if (closing) scrobbler.stop(s.position, s.duration) else scrobbler.update(s.position, s.duration, s.paused)
     }
 
     // In the background: paused, progress kept.
@@ -149,7 +153,7 @@ fun PlayerScreen(request: PlayRequest) {
         lifecycle.addObserver(observer)
         onDispose {
             lifecycle.removeObserver(observer)
-            report()
+            report(closing = true)
             player.release()
             // A torrent streamed for this player only stops with it.
             request.stream?.infoHash?.let { Core.stopTorrent(it) }
@@ -176,6 +180,8 @@ fun PlayerScreen(request: PlayRequest) {
             report()
         }
     }
+    // A pause or resume reaches Trakt / SIMKL at once.
+    LaunchedEffect(state.paused) { report() }
 
     // Addon subtitles, as macOS: listed in the menu, and one in the chosen
     // language added when the file has none and the audio isn't in it.

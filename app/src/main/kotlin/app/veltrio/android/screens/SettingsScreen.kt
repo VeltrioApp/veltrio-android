@@ -57,7 +57,11 @@ import app.veltrio.android.ui.GhostButton
 import app.veltrio.android.ui.PageHeader
 import app.veltrio.android.ui.PrimaryButton
 import app.veltrio.android.ui.SectionHeader
+import app.veltrio.shared.AccountState
 import app.veltrio.shared.AppPrefs
+import app.veltrio.shared.SimklAccount
+import app.veltrio.shared.StremioAccount
+import app.veltrio.shared.TraktAccount
 import app.veltrio.shared.AppTheme
 import app.veltrio.shared.Core
 import app.veltrio.shared.DebridAccount
@@ -277,6 +281,101 @@ private fun StorageSection() {
 @Composable
 private fun DownloadsSection() {}
 
-/** Filled in by the accounts lot. */
 @Composable
-private fun AccountsSection() {}
+private fun AccountsSection() {
+    StremioCard()
+    val trakt by TraktAccount.state.collectAsState()
+    CodeAccountCard(
+        "Trakt", 0xFFED1C24, trakt,
+        "Suit ce que vous regardez (scrobbling) et importe votre watchlist et votre historique.",
+        onConnect = TraktAccount::startDeviceAuth, onCancel = TraktAccount::cancelFlow,
+        onImport = TraktAccount::importLibrary, onDisconnect = TraktAccount::disconnect,
+    )
+    val simkl by SimklAccount.state.collectAsState()
+    CodeAccountCard(
+        "SIMKL", 0xFF0B0F10, simkl,
+        "Suit ce que vous regardez et importe vos listes (à voir, en cours, terminé).",
+        onConnect = SimklAccount::startPinFlow, onCancel = SimklAccount::cancelFlow,
+        onImport = SimklAccount::importLibrary, onDisconnect = SimklAccount::disconnect,
+    )
+}
+
+@Composable
+private fun AccountCard(name: String, color: Long, connected: Boolean, content: @Composable () -> Unit) {
+    val p = VeltrioTheme.palette
+    Column(Modifier.fillMaxWidth().border(1.dp, p.border).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Box(Modifier.size(10.dp).clip(CircleShape).background(Color(color)).border(1.dp, p.border, CircleShape))
+            Text(name, style = Type.title(16), color = p.textPrimary, modifier = Modifier.weight(1f))
+            if (connected) Text("CONNECTÉ", style = Type.eyebrow(9, 0.2f), color = p.success)
+        }
+        content()
+    }
+}
+
+@Composable
+private fun AccountFooter(state: AccountState) {
+    val p = VeltrioTheme.palette
+    state.lastResult?.let { Text(it, style = Type.mono(11), color = p.textTertiary) }
+    state.addonResult?.let { Text(it, style = Type.mono(11), color = p.textTertiary) }
+    state.error?.let { Text(it, style = Type.caption(12), color = p.danger) }
+}
+
+@Composable
+private fun StremioCard() {
+    val state by StremioAccount.state.collectAsState()
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    AccountCard("Stremio", 0xFF7B5BF5, state.connected) {
+        if (state.connected) {
+            Text(state.user ?: "", style = Type.mono(12), color = VeltrioTheme.palette.textSecondary)
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                PrimaryButton("Importer la bibliothèque", loading = state.importing) { StremioAccount.importLibrary() }
+                GhostButton("Installer ses addons", enabled = !state.busy) { StremioAccount.installAccountAddons() }
+                GhostButton("Déconnecter", color = VeltrioTheme.palette.danger) { StremioAccount.signOut() }
+            }
+        } else {
+            Body("Importe les titres enregistrés, ce que vous avez vu, et vos addons. Rien n'est renvoyé à Stremio.")
+            TextInput(email, { email = it }, "E-mail")
+            TextInput(password, { password = it }, "Mot de passe", secret = true)
+            PrimaryButton("Se connecter", enabled = email.isNotBlank() && password.isNotEmpty(), loading = state.busy) {
+                StremioAccount.signIn(email.trim(), password)
+            }
+        }
+        AccountFooter(state)
+    }
+}
+
+@Composable
+private fun CodeAccountCard(
+    name: String, color: Long, state: AccountState, blurb: String,
+    onConnect: () -> Unit, onCancel: () -> Unit, onImport: () -> Unit, onDisconnect: () -> Unit,
+) {
+    val p = VeltrioTheme.palette
+    val context = LocalContext.current
+    AccountCard(name, color, state.connected) {
+        when {
+            !state.available -> Body("Indisponible dans cette version de l'app.")
+            state.connected -> {
+                state.user?.let { Text(it, style = Type.mono(12), color = p.textSecondary) }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    PrimaryButton("Importer", loading = state.importing, onClick = onImport)
+                    GhostButton("Déconnecter", color = p.danger, onClick = onDisconnect)
+                }
+            }
+            state.pendingCode != null -> {
+                Body("Ouvrez ${state.pendingUrl} et saisissez ce code :")
+                Text(state.pendingCode ?: "", style = Type.mono(28, FontWeight.Bold), color = p.accentText)
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    PrimaryButton("Ouvrir la page", icon = Icons.AutoMirrored.Filled.OpenInNew) { openUrl(context, state.pendingUrl ?: "") }
+                    GhostButton("Annuler", onClick = onCancel)
+                }
+            }
+            else -> {
+                Body(blurb)
+                PrimaryButton("Se connecter", loading = state.busy, onClick = onConnect)
+            }
+        }
+        AccountFooter(state)
+    }
+}

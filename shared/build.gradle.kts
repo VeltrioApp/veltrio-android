@@ -11,6 +11,14 @@ android {
     defaultConfig {
         // Android 8.0, as the core's build (VELTRIO_ANDROID_API).
         minSdk = 26
+
+        // Trakt and SIMKL app credentials, from the environment at build time
+        // (the release workflow passes repository secrets); never committed.
+        // Unset, those accounts stay unavailable in Settings.
+        fun env(name: String) = "\"${System.getenv(name).orEmpty().trim()}\""
+        buildConfigField("String", "TRAKT_CLIENT_ID", env("VELTRIO_TRAKT_CLIENT_ID"))
+        buildConfigField("String", "TRAKT_CLIENT_SECRET", env("VELTRIO_TRAKT_CLIENT_SECRET"))
+        buildConfigField("String", "SIMKL_CLIENT_ID", env("VELTRIO_SIMKL_CLIENT_ID"))
     }
 
     compileOptions {
@@ -25,7 +33,10 @@ android {
         kotlin.directories.add("../core/kotlin")
     }
 
-    buildFeatures { compose = true }
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
 }
 
 dependencies {

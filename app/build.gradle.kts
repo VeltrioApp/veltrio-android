@@ -15,9 +15,22 @@ android {
         versionName = "0.1.0"
     }
 
+    // Release signing from the environment (the release workflow decodes the
+    // keystore secret); without it, release builds come out unsigned.
+    val keystore = System.getenv("VELTRIO_KEYSTORE")?.takeIf { file(it).exists() }
+    signingConfigs {
+        if (keystore != null) create("release") {
+            storeFile = file(keystore)
+            storePassword = System.getenv("VELTRIO_KEYSTORE_PASSWORD")
+            keyAlias = System.getenv("VELTRIO_KEY_ALIAS")
+            keyPassword = System.getenv("VELTRIO_KEY_PASSWORD")
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            if (keystore != null) signingConfig = signingConfigs.getByName("release")
         }
     }
 
