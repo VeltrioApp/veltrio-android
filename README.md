@@ -8,10 +8,13 @@ and Windows.
 Two Gradle modules:
 
 - `shared` — the core's bindings, storage, models, services (addons,
-  catalogs, streams, Collection…), the player and the design tokens. The
+  catalogs, streams, Collection, debrid, IPTV, accounts, media servers,
+  downloads, Chromecast…), the player, the design tokens and the screens. The
   Android TV app ([veltrio-androidtv](https://github.com/VeltrioApp/veltrio-androidtv))
   includes this repository as a git submodule and builds on this module.
-- `app` — the phone app.
+- `app` — the phone app: its activity (numbered tabs), the download
+  service. The TV app has its own activity (a side rail) and shows the
+  same screens, with a focus frame and remote keys in the player.
 
 ## Build
 

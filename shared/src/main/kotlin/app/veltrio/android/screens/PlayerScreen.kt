@@ -90,7 +90,18 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import app.veltrio.android.LocalTv
 import app.veltrio.android.Nav
+import androidx.compose.foundation.focusable
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEvent
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import app.veltrio.shared.AddonSubtitle
 import app.veltrio.shared.ChromecastService
 import app.veltrio.shared.Core
@@ -228,15 +239,62 @@ fun PlayerScreen(request: PlayRequest) {
         }
     }
 
+    val tv = LocalTv.current
     BackHandler {
         when {
             panel != null -> panel = null
+            // With a remote, Back first hides the controls, as on macOS Escape
+            // first leaves full screen.
+            tv && controls -> controls = false
             else -> Nav.back()
         }
     }
 
+    // The remote (and a keyboard): play / pause, ±10 s while the controls are
+    // hidden, any other direction shows them, channel up / down zaps.
+    val rootFocus = remember { FocusRequester() }
+    val playFocus = remember { FocusRequester() }
+    LaunchedEffect(controls, panel, endOverlay) {
+        if (panel != null || endOverlay) return@LaunchedEffect
+        runCatching { if (controls && tv) playFocus.requestFocus() else rootFocus.requestFocus() }
+    }
+    fun zap(step: Int) {
+        val playlist = request.playlist ?: return
+        val channel = request.channel ?: return
+        val list = IptvStore.loaded(playlist).orEmpty()
+        val index = list.indexOfFirst { it.id == channel.id }.takeIf { it >= 0 } ?: return
+        list.getOrNull((index + step + list.size) % list.size)?.let { Nav.zap(PlayRequest.forChannel(it, playlist)) }
+    }
+    fun onKey(event: KeyEvent): Boolean {
+        if (event.type != KeyEventType.KeyDown) return false
+        touched++
+        if (panel != null || endOverlay) return false
+        when (event.key) {
+            Key.MediaPlayPause, Key.Spacebar -> { player.togglePause(); return true }
+            Key.MediaPlay -> { player.setPaused(false); return true }
+            Key.MediaPause -> { player.setPaused(true); return true }
+            Key.ChannelUp, Key.PageUp -> { zap(-1); return request.isLive }
+            Key.ChannelDown, Key.PageDown -> { zap(1); return request.isLive }
+            Key.MediaFastForward -> { if (!request.isLive) player.skip(30.0); return true }
+            Key.MediaRewind -> { if (!request.isLive) player.skip(-30.0); return true }
+        }
+        if (controls) return false
+        when (event.key) {
+            Key.DirectionLeft -> if (!request.isLive) player.skip(-10.0) else zap(-1)
+            Key.DirectionRight -> if (!request.isLive) player.skip(10.0) else zap(1)
+            Key.DirectionCenter, Key.Enter, Key.NumPadEnter, Key.DirectionUp -> controls = true
+            Key.DirectionDown -> if (request.isLive && request.playlist != null) panel = Panel.Channels else controls = true
+            else -> return false
+        }
+        return true
+    }
+
     val p = VeltrioTheme.palette
-    Box(Modifier.fillMaxSize().background(Color.Black)) {
+    Box(
+        Modifier.fillMaxSize().background(Color.Black)
+            .onPreviewKeyEvent { if (it.type == KeyEventType.KeyDown) touched++; false }
+            .focusRequester(rootFocus).focusable().onKeyEvent(::onKey),
+    ) {
         AndroidView({ SurfaceView(it).apply { holder.addCallback(player) } }, Modifier.fillMaxSize())
 
         // Taps: show / hide; a double tap on either third skips 10 s.
@@ -289,6 +347,7 @@ fun PlayerScreen(request: PlayRequest) {
                     onCommit = { player.seek(it); scrub = null; touched++ },
                     onToggle = { player.togglePause(); touched++ },
                     onSkip = { player.skip(it); touched++ },
+                    playFocus = playFocus,
                 )
             }
         }
@@ -423,6 +482,7 @@ private fun LiveBadge() {
 private fun BottomBar(
     request: PlayRequest, state: PlayerState, scrub: Double?, modifier: Modifier,
     onScrub: (Double) -> Unit, onCommit: (Double) -> Unit, onToggle: () -> Unit, onSkip: (Double) -> Unit,
+    playFocus: FocusRequester,
 ) {
     Column(
         modifier.fillMaxWidth()
@@ -440,7 +500,7 @@ private fun BottomBar(
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             if (!request.isLive) ControlButton(Icons.Filled.Replay10, "Reculer de 10 s") { onSkip(-10.0) }
-            Box(Modifier.size(52.dp).clip(CircleShape).background(Color.White).clickable(onClick = onToggle), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(52.dp).clip(CircleShape).background(Color.White).focusRequester(playFocus).clickable(onClick = onToggle), contentAlignment = Alignment.Center) {
                 Icon(if (state.paused) Icons.Filled.PlayArrow else Icons.Filled.Pause, if (state.paused) "Lecture" else "Pause", Modifier.size(26.dp), tint = Color.Black)
             }
             if (!request.isLive) ControlButton(Icons.Filled.Forward10, "Avancer de 10 s") { onSkip(10.0) }

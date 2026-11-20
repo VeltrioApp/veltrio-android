@@ -51,6 +51,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.veltrio.android.DetailRequest
 import app.veltrio.android.Nav
+import app.veltrio.android.ui.hero
 import app.veltrio.android.ui.Chip
 import app.veltrio.android.ui.Eyebrow
 import app.veltrio.android.ui.GhostButton
@@ -206,7 +207,7 @@ fun DetailScreen(request: DetailRequest) {
 
     LazyColumn(Modifier.fillMaxSize().background(p.background), contentPadding = PaddingValues(bottom = Spacing.xl)) {
         item {
-            Box(Modifier.fillMaxWidth().aspectRatio(1.1f)) {
+            Box(Modifier.hero(1.1f)) {
                 AsyncImage(d?.background ?: request.background ?: request.poster, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                 Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to p.background.copy(alpha = 0.35f), 0.4f to p.background.copy(alpha = 0.15f), 1f to p.background)))
                 Row(

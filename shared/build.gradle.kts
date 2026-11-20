@@ -50,4 +50,11 @@ dependencies {
     // UniFFI's Kotlin bindings call the .so through JNA (the Android aar).
     api("${libs.jna.get().module}:${libs.jna.get().version}@aar")
     api(libs.libmpv)
+    // The screens live here too, so the phone and TV apps share them.
+    api(libs.activity.compose)
+    api(libs.navigation.compose)
+    api(libs.lifecycle.runtime.compose)
+    api(libs.compose.material.icons)
+    api(libs.coil.compose)
+    api(libs.coil.network)
 }

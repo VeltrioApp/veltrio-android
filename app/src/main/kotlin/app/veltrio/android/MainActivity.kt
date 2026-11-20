@@ -55,69 +55,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        setContent {
-            val dark = when (Nav.theme) {
-                AppTheme.Dark -> true
-                AppTheme.Light -> false
-                AppTheme.System -> androidx.compose.foundation.isSystemInDarkTheme()
-            }
-            // Dark icons over the light theme's paper, light ones over black.
-            androidx.compose.runtime.SideEffect {
-                androidx.core.view.WindowCompat.getInsetsController(window, window.decorView).apply {
-                    isAppearanceLightStatusBars = !dark
-                    isAppearanceLightNavigationBars = !dark
-                }
-            }
-            VeltrioTheme(dark = dark) {
-                val controller = rememberNavController()
-                Nav.controller = controller
-                // The player is full screen, in landscape, with the screen kept
-                // on. Decided here from the destination, so zapping (one player
-                // replacing another) doesn't flip back to portrait in between.
-                val entry by controller.currentBackStackEntryAsState()
-                val inPlayer = entry?.destination?.route?.startsWith("player/") == true
-                androidx.compose.runtime.LaunchedEffect(inPlayer) {
-                    val insets = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
-                    if (inPlayer) {
-                        requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-                        insets.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-                        insets.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
-                    } else {
-                        requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-                        insets.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
-                    }
-                    window.decorView.keepScreenOn = inPlayer
-                }
-                Box(Modifier.fillMaxSize().background(VeltrioTheme.palette.background)) {
-                    NavHost(controller, startDestination = "tabs") {
-                        composable("tabs") { Tabs() }
-                        composable("detail/{key}") { DetailScreen(Nav.arg(it.arguments?.getString("key"))!!) }
-                        composable("catalog/{key}") { CatalogScreen(Nav.arg(it.arguments?.getString("key"))!!) }
-                        composable("player/{key}") { PlayerScreen(Nav.arg(it.arguments?.getString("key"))!!) }
-                        composable("iptvseries/{key}") {
-                            val (playlist, series) = Nav.arg<Pair<app.veltrio.shared.iptv.PlaylistRef, app.veltrio.shared.iptv.ChannelItem>>(it.arguments?.getString("key"))!!
-                            app.veltrio.android.screens.IptvSeriesScreen(playlist, series)
-                        }
-                        composable("serverseries/{key}") {
-                            val (server, item) = Nav.arg<Pair<app.veltrio.shared.MediaServer, app.veltrio.shared.MediaLibraryItem>>(it.arguments?.getString("key"))!!
-                            app.veltrio.android.screens.MediaServerSeriesScreen(server, item)
-                        }
-                        composable("addoncatalog") { app.veltrio.android.screens.AddonCatalogScreen() }
-                        composable("search") { SearchScreen() }
-                        composable("settings") { SettingsScreen() }
-                    }
-                    // Debug builds only: `adb shell am start … --es play_url <url>`
-                    // opens the player straight away, to test it without an addon.
-                    val debuggable = applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0
-                    androidx.compose.runtime.LaunchedEffect(Unit) {
-                        val url = intent.getStringExtra("play_url")
-                        if (debuggable && url != null) {
-                            Nav.play(app.veltrio.shared.PlayRequest(title = "Test", subtitle = url, url = url, videoId = intent.getStringExtra("video_id")))
-                        }
-                    }
-                }
-            }
-        }
+        setContent { VeltrioRoot(this, tv = false) { Tabs() } }
     }
 }
 

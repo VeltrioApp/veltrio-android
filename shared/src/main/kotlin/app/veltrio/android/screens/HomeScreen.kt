@@ -40,6 +40,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.veltrio.android.DetailRequest
 import app.veltrio.android.Nav
+import app.veltrio.android.ui.hero
 import app.veltrio.android.CatalogRequest
 import app.veltrio.android.ui.Eyebrow
 import app.veltrio.android.ui.GhostButton
@@ -108,7 +109,7 @@ fun HomeScreen() {
         // the first row's artwork arrives.
         item(key = "hero") {
             if (hero != null) Hero(hero)
-            else Box(Modifier.fillMaxWidth().aspectRatio(0.78f))
+            else Box(Modifier.hero(0.78f))
         }
         if (continueWatching.isNotEmpty()) {
             item {
@@ -155,7 +156,7 @@ fun HomeScreen() {
 private fun Hero(item: PosterItem) {
     val p = VeltrioTheme.palette
     val started = WatchStore.entry(item.type, item.id)?.isStarted == true
-    Box(Modifier.fillMaxWidth().aspectRatio(0.78f)) {
+    Box(Modifier.hero(0.78f)) {
         AsyncImage(item.backgroundUrl, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Transparent, 0.45f to p.background.copy(alpha = 0.35f), 1f to p.background)))
         Column(Modifier.align(Alignment.BottomStart).padding(horizontal = Spacing.lg), verticalArrangement = Arrangement.spacedBy(10.dp)) {

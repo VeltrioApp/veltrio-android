@@ -40,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.veltrio.android.Nav
+import app.veltrio.android.ui.hero
 import app.veltrio.android.ui.Chip
 import app.veltrio.android.ui.Eyebrow
 import app.veltrio.android.ui.LoadingRow
@@ -90,7 +91,7 @@ fun IptvSeriesScreen(playlist: PlaylistRef, item: ChannelItem) {
     val s = series
     LazyColumn(Modifier.fillMaxSize().background(p.background), contentPadding = PaddingValues(bottom = Spacing.xl)) {
         item {
-            Box(Modifier.fillMaxWidth().aspectRatio(1.3f)) {
+            Box(Modifier.hero(1.3f, 380.dp)) {
                 AsyncImage(s?.backdrop ?: s?.cover ?: item.logo, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                 Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to p.background.copy(alpha = 0.3f), 1f to p.background)))
                 Box(Modifier.statusBarsPadding().padding(Spacing.md).size(40.dp).background(Color.Black.copy(alpha = 0.45f)).clickable { Nav.back() }, contentAlignment = Alignment.Center) {
