@@ -52,7 +52,9 @@ class DownloadService : Service() {
     private fun notification() = run {
         val active = DownloadManager.items.value.filter { it.status == DownloadStatus.Downloading }
         val first = active.firstOrNull()
-        val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
+        // Back to whichever app this is (phone or TV).
+        val launch = packageManager.getLaunchIntentForPackage(packageName) ?: packageManager.getLeanbackLaunchIntentForPackage(packageName)
+        val open = PendingIntent.getActivity(this, 0, launch ?: Intent(), PendingIntent.FLAG_IMMUTABLE)
         NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(android.R.drawable.stat_sys_download)
             .setContentTitle(if (active.size > 1) "${active.size} téléchargements" else first?.title ?: "Téléchargement")

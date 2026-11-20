@@ -26,6 +26,7 @@ object Storage {
         WatchStore.init()
         app.veltrio.shared.iptv.IptvStore.init()
         DownloadManager.init(context)
+        DownloadManager.serviceClass = app.veltrio.android.DownloadService::class.java
     }
 
     fun <T> load(file: String, serializer: KSerializer<T>, fallback: T): T = try {
