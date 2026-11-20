@@ -47,3 +47,24 @@ which Kotlin 2.4 rejects.
 - `release.yml` — tag `vX.Y.Z`: signed `.aab` + APK attached to the GitHub release (Play Console upload to add). Skipped until the project exists.
 
 Organisation secrets used: `CORE_RELEASES_TOKEN` (optional: the repositories are public, so the workflow token can read core releases), `ANDROID_KEYSTORE`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`.
+
+## Sending settings to a TV
+
+Settings → « Envoyer vers une TV » sends this device's addons, IPTV
+playlists, debrid keys, accounts, media servers, Collection and playback
+choices to a Veltrio TV on the same network (« Depuis un téléphone » there).
+The TV advertises `_veltrio-pair._tcp` over DNS-SD, listens on port 8765
+(else any free one) and shows a 6-digit code:
+
+1. `GET /veltrio-pair` → `{"name", "publicKey", "version": 1}`: an ephemeral
+   P-256 key, uncompressed X9.63, base64.
+2. The sender makes its own P-256 key pair; AES-256-GCM key =
+   HKDF-SHA256(ikm: ECDH secret, salt: the code as UTF-8, info:
+   `veltrio-pair-v1`).
+3. `POST /veltrio-pair {"publicKey", "nonce" (12 bytes), "data"}`: `data`
+   is the `SettingsBundle` JSON (see `Pairing.kt`), encrypted, tag
+   appended. 200 `{"result"}`, or 403 for a wrong code; after 5 wrong
+   codes the TV draws a new code and key.
+
+Importing is additive: nothing already on the TV is removed. Any platform
+with P-256 ECDH can send (CryptoKit on iOS / macOS, CNG on Windows).

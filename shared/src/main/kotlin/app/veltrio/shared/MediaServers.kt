@@ -101,6 +101,13 @@ abstract class MediaServer(val kind: MediaServerKind) {
 
     abstract fun disconnect()
 
+    /** The account changed (settings received from a phone). */
+    open fun reload() {
+        token = SecretStore.get("mediaserver.${kind.name}".lowercase())
+        publish()
+        MediaServers._version.value++
+    }
+
     // Library browsing (Collection) and IMDB matching (title pages).
     abstract suspend fun sections(): List<MediaLibrarySection>
     abstract suspend fun items(section: MediaLibrarySection, start: Int, limit: Int): MediaLibraryPage
@@ -166,6 +173,10 @@ object MediaServers {
         save(kind, withId)
         return withId
     }
+
+    /** What's saved for a server, as it is (sending settings to a TV). */
+    @Synchronized
+    fun savedOrNull(kind: MediaServerKind): Saved? = saved(kind).takeIf { it.url != null || it.userName != null }
 
     @Synchronized
     fun save(kind: MediaServerKind, value: Saved) {
@@ -402,6 +413,11 @@ class PlexServer : MediaServer(MediaServerKind.Plex) {
     fun cancelPinFlow() {
         flow?.cancel()
         flow = null
+    }
+
+    override fun reload() {
+        access = null
+        super.reload()
     }
 
     private suspend fun refreshUser() {

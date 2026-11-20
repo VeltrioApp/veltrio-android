@@ -21,6 +21,9 @@ object SecretStore {
 
     fun get(name: String): String? = synchronized(this) { values[name] }
 
+    /** Every secret whose name starts with [prefix] (sending settings to a TV). */
+    fun withPrefix(prefix: String): Map<String, String> = synchronized(this) { values.filterKeys { it.startsWith(prefix) } }
+
     fun set(name: String, value: String?) = synchronized(this) {
         if (value == null) values.remove(name) else values[name] = value
         save()

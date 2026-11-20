@@ -26,6 +26,7 @@ object Storage {
         WatchStore.init()
         app.veltrio.shared.iptv.IptvStore.init()
         DownloadManager.init(context)
+        Pairing.init(context)
         DownloadManager.serviceClass = app.veltrio.android.DownloadService::class.java
     }
 

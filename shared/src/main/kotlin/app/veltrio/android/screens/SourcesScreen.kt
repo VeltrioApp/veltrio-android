@@ -92,10 +92,10 @@ fun SourcesScreen() {
             Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SectionHeader(1, "Installer depuis une URL")
                 Text("Collez l'URL du manifest d'un addon Stremio (…/manifest.json ou un lien stremio://).", style = Type.body(13), color = p.textSecondary)
-                Box(Modifier.fillMaxWidth().border(1.dp, p.borderStrong).padding(12.dp)) {
+                app.veltrio.android.ui.RemoteTextField(Modifier.fillMaxWidth().border(1.dp, p.borderStrong).padding(12.dp)) { fieldModifier ->
                     if (url.isEmpty()) Text("https://…/manifest.json", style = Type.mono(13), color = p.textQuaternary)
                     BasicTextField(
-                        url, { url = it }, Modifier.fillMaxWidth(), singleLine = true,
+                        url, { url = it }, fieldModifier.fillMaxWidth(), singleLine = true,
                         textStyle = Type.mono(13).copy(color = p.textPrimary), cursorBrush = SolidColor(p.accent),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done),
                     )

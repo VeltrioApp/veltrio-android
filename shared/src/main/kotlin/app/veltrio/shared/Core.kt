@@ -63,6 +63,8 @@ object Core {
 
     fun isEnabled(addon: AddonInfo) = addon.id !in _disabled.value
 
+    fun isSameAddon(a: String, b: String) = baseUrl(a) == baseUrl(b)
+
     fun isInstalled(manifestUrl: String) = _addons.value.any { baseUrl(it.transportUrl) == baseUrl(manifestUrl) }
 
     /** The core keeps the addon's base URL; suggestions use the manifest's. */

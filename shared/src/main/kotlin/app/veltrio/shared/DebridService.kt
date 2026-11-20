@@ -68,6 +68,17 @@ object DebridService {
         _accounts.value.values.filter { it.isConnected }.forEach { scope.launch { refreshUser(it.provider) } }
     }
 
+    /** Keys changed in SecretStore (settings received from a phone). */
+    fun reload() {
+        DebridProvider.entries.forEach { p ->
+            val key = SecretStore.get(secretName(p))
+            if (key != account(p).key) {
+                update(p) { DebridAccount(p, key = key) }
+                if (key != null) scope.launch { refreshUser(p) }
+            }
+        }
+    }
+
     fun account(p: DebridProvider) = _accounts.value.getValue(p)
     val anyConnected get() = _accounts.value.values.any { it.isConnected }
 

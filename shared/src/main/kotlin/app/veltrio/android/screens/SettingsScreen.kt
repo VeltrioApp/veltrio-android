@@ -115,7 +115,16 @@ fun SettingsScreen() {
                 }
             }
             Section(6, "Stockage") { StorageSection() }
-            Section(7, "À propos") {
+            Section(7, "Autres appareils") {
+                if (app.veltrio.android.LocalTv.current) {
+                    Body("Plutôt que de tout reconfigurer à la télécommande : recevez les sources, comptes et la Collection d'un téléphone où Veltrio est installé, sur le même réseau.")
+                    PrimaryButton("Recevoir les réglages d'un téléphone") { Nav.pair() }
+                } else {
+                    Body("Configurez une TV (Android TV, Google TV) en un geste : vos sources, comptes et votre Collection, envoyés par le réseau local.")
+                    PrimaryButton("Envoyer vers une TV") { Nav.pair() }
+                }
+            }
+            Section(8, "À propos") {
                 val context = LocalContext.current
                 val version = remember { context.packageManager.getPackageInfo(context.packageName, 0).versionName }
                 Text("Veltrio $version", style = Type.title(18), color = p.textPrimary)
@@ -141,13 +150,17 @@ private fun Section(number: Int, title: String, content: @Composable () -> Unit)
 private fun Body(text: String) = Text(text, style = Type.body(13), color = VeltrioTheme.palette.textSecondary)
 
 @Composable
-internal fun TextInput(value: String, onChange: (String) -> Unit, placeholder: String, modifier: Modifier = Modifier, secret: Boolean = false) {
+internal fun TextInput(
+    value: String, onChange: (String) -> Unit, placeholder: String, modifier: Modifier = Modifier, secret: Boolean = false,
+    keyboardOptions: androidx.compose.foundation.text.KeyboardOptions = androidx.compose.foundation.text.KeyboardOptions.Default,
+) {
     val p = VeltrioTheme.palette
-    Box(modifier.fillMaxWidth().border(1.dp, p.borderStrong).padding(12.dp)) {
+    app.veltrio.android.ui.RemoteTextField(modifier.fillMaxWidth().border(1.dp, p.borderStrong).padding(12.dp)) { fieldModifier ->
         if (value.isEmpty()) Text(placeholder, style = Type.mono(13), color = p.textQuaternary)
         BasicTextField(
-            value, onChange, Modifier.fillMaxWidth(), singleLine = true,
+            value, onChange, fieldModifier.fillMaxWidth(), singleLine = true,
             textStyle = Type.mono(13).copy(color = p.textPrimary), cursorBrush = SolidColor(p.accent),
+            keyboardOptions = keyboardOptions,
             visualTransformation = if (secret) androidx.compose.ui.text.input.PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
         )
     }

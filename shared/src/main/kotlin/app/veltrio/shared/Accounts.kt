@@ -91,6 +91,12 @@ object StremioAccount : AccountService() {
     private var authKey: String? = SecretStore.get(KEY_SECRET)
 
     init {
+        reload()
+    }
+
+    /** The session changed in SecretStore (settings received from a phone). */
+    fun reload() {
+        authKey = SecretStore.get(KEY_SECRET)
         _state.value = AccountState(connected = authKey != null, user = SecretStore.get(EMAIL_SECRET))
     }
 
@@ -202,6 +208,12 @@ object TraktAccount : AccountService() {
     val isConnected get() = token != null && available
 
     init {
+        reload()
+    }
+
+    /** The token changed in SecretStore (settings received from a phone). */
+    fun reload() {
+        token = SecretStore.get(TOKEN_SECRET)
         _state.value = AccountState(available = available, connected = isConnected)
         if (isConnected) scope.launch { refreshUser() }
     }
@@ -310,6 +322,12 @@ object SimklAccount : AccountService() {
     val isConnected get() = token != null && clientId != null
 
     init {
+        reload()
+    }
+
+    /** The token changed in SecretStore (settings received from a phone). */
+    fun reload() {
+        token = SecretStore.get(TOKEN_SECRET)
         _state.value = AccountState(available = clientId != null, connected = isConnected)
     }
 

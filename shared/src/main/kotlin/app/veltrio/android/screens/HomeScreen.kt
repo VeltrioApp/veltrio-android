@@ -216,5 +216,10 @@ private fun EmptyHome() {
             }
         }
         if (error != null) Text(error!!, style = Type.caption(12), color = p.danger)
+        // A TV set up with a remote is tedious: offer a phone's settings.
+        if (app.veltrio.android.LocalTv.current) {
+            Text("Veltrio est déjà configuré sur votre téléphone ?", style = Type.body(14), color = p.textSecondary, modifier = Modifier.padding(top = 12.dp))
+            GhostButton("Importer depuis un téléphone") { Nav.pair() }
+        }
     }
 }

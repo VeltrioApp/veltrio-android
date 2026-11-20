@@ -53,6 +53,7 @@ object Nav {
         showTab(1)
     }
     fun addonCatalog() = controller.navigate("addoncatalog")
+    fun pair() = controller.navigate("pair")
     fun search() = controller.navigate("search")
     fun settings() = controller.navigate("settings")
     fun back() = controller.popBackStack()

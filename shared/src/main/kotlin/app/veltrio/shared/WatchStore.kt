@@ -209,6 +209,46 @@ object WatchStore {
         return changed
     }
 
+    /** Entries from another device (settings received from a phone): saved
+     *  and watched marks add up, progress takes the more recent side, episode
+     *  by episode. Returns how many titles changed. */
+    fun mergeEntries(incoming: List<WatchEntry>): Int {
+        var changed = 0
+        val map = _entries.value.toMutableMap()
+        for (theirs in incoming) {
+            val mine = map[theirs.key]
+            val merged = if (mine == null) theirs else {
+                val newer = if (theirs.lastWatchedAt > mine.lastWatchedAt) theirs else mine
+                val episodes = (mine.episodes.keys + theirs.episodes.keys).associateWith { id ->
+                    val a = mine.episodes[id]
+                    val b = theirs.episodes[id]
+                    when {
+                        a == null -> b!!
+                        b == null -> a
+                        else -> (if (b.updatedAt > a.updatedAt) b else a).copy(watched = a.watched || b.watched)
+                    }
+                }
+                newer.copy(
+                    inLibrary = mine.inLibrary || theirs.inLibrary,
+                    watched = mine.watched || theirs.watched,
+                    episodes = episodes,
+                    addedAt = minOf(mine.addedAt, theirs.addedAt),
+                    poster = newer.poster ?: mine.poster ?: theirs.poster,
+                    background = newer.background ?: mine.background ?: theirs.background,
+                )
+            }
+            if (merged != mine) {
+                map[theirs.key] = merged
+                changed++
+            }
+        }
+        if (changed > 0) {
+            _entries.value = map
+            save()
+        }
+        return changed
+    }
+
     private fun update(type: String, id: String, name: String, change: (WatchEntry) -> WatchEntry) {
         val key = "$type|$id"
         val e = _entries.value[key] ?: WatchEntry(type = type, contentId = id)

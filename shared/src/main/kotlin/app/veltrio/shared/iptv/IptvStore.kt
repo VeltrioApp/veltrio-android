@@ -92,6 +92,21 @@ object IptvStore {
         return null
     }
 
+    /** A playlist received from a phone, password included; skipped when
+     *  the same source is already there. Returns whether it was added. */
+    fun import(playlist: PlaylistRef): Boolean {
+        val same = _playlists.value.any { p ->
+            if (playlist.xtream != null) p.xtream?.baseUrl == playlist.xtream.baseUrl && p.xtream.username == playlist.xtream.username
+            else p.url == playlist.url
+        }
+        if (same || playlist.url.startsWith("file://")) return false
+        playlist.xtream?.let { SecretStore.set(secretName(playlist.id), it.password) }
+        _playlists.value = _playlists.value + playlist
+        save()
+        if (_selectedId.value == null) select(playlist)
+        return true
+    }
+
     private fun add(playlist: PlaylistRef) {
         _playlists.value = _playlists.value + playlist
         save()

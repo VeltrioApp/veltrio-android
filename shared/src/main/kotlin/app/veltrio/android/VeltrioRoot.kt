@@ -98,6 +98,7 @@ fun VeltrioRoot(activity: ComponentActivity, tv: Boolean, sections: @Composable 
                         MediaServerSeriesScreen(server, item)
                     }
                     composable("addoncatalog") { AddonCatalogScreen() }
+                    composable("pair") { app.veltrio.android.screens.PairScreen() }
                     composable("search") { SearchScreen() }
                     composable("settings") { SettingsScreen() }
                 }
