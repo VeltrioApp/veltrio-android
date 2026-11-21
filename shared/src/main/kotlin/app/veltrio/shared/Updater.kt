@@ -25,26 +25,41 @@ object Updater {
     private val _state = MutableStateFlow(State())
     val state: StateFlow<State> = _state
     private var apk: File? = null
+    private var didLaunchCheck = false
 
     fun currentVersion(context: Context): String =
         runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "?"
 
     private fun repository(context: Context) = if (context.packageName.endsWith(".tv")) "veltrio-androidtv" else "veltrio-android"
 
+    /** Silently checks for a newer release once per launch (throttled to 12 h)
+     *  in release builds when auto-check is enabled. */
+    suspend fun checkOnLaunchIfNeeded(context: Context) {
+        if (didLaunchCheck || !AppPrefs.current.autoCheckUpdates) return
+        if (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) return
+        didLaunchCheck = true
+        val prefs = context.getSharedPreferences("veltrio_updater", Context.MODE_PRIVATE)
+        val last = prefs.getLong("last_check_ms", 0L)
+        val now = System.currentTimeMillis()
+        if (now - last < 12L * 3600L * 1000L) return
+        prefs.edit().putLong("last_check_ms", now).apply()
+        check(context, silent = true)
+    }
+
     /** Looks for a newer release and downloads its APK. */
-    suspend fun check(context: Context) {
+    suspend fun check(context: Context, silent: Boolean = false) {
         if (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) {
-            _state.value = State(Step.Development)
+            if (!silent) _state.value = State(Step.Development)
             return
         }
         if (_state.value.step in setOf(Step.Checking, Step.Downloading)) return
-        _state.value = State(Step.Checking)
+        if (!silent) _state.value = State(Step.Checking)
         try {
             val releases = Http.json(Request.Builder().url("https://api.github.com/repos/VeltrioApp/${repository(context)}/releases?per_page=10").build(), "GitHub")
             val newest = releases.items.filter { it.bool("draft") != true }.maxWithOrNull { a, b -> compare(a.str("tag_name") ?: "", b.str("tag_name") ?: "") }
             val tag = newest?.str("tag_name")
             if (newest == null || tag == null || compare(tag, currentVersion(context)) <= 0) {
-                _state.value = State(Step.UpToDate)
+                if (!silent) _state.value = State(Step.UpToDate)
                 return
             }
             val asset = newest.array("assets").firstOrNull { it.str("name")?.endsWith("-release.apk") == true }
@@ -72,7 +87,7 @@ object Updater {
             apk = target
             _state.value = State(Step.Ready, tag, 1f)
         } catch (e: Exception) {
-            _state.value = State(Step.Failed, error = e.message ?: Core.humanize(e))
+            if (!silent) _state.value = State(Step.Failed, error = e.message ?: Core.humanize(e))
         }
     }
 

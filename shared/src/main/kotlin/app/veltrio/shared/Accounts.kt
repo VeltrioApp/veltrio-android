@@ -90,6 +90,14 @@ object StremioAccount : AccountService() {
     private const val KEY_SECRET = "stremio.authkey"
     private const val EMAIL_SECRET = "stremio.email"
     private var authKey: String? = SecretStore.get(KEY_SECRET)
+    private var didLaunchSync = false
+
+    /** Silently syncs Stremio watch history once per app launch. */
+    fun syncOnLaunchIfNeeded() {
+        if (didLaunchSync || authKey == null) return
+        didLaunchSync = true
+        importLibrary()
+    }
 
     init {
         reload()

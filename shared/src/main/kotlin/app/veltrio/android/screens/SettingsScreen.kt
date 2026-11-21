@@ -130,6 +130,10 @@ fun SettingsScreen() {
                 val version = remember { context.packageManager.getPackageInfo(context.packageName, 0).versionName }
                 Text(tr("Veltrio %s", version), style = Type.title(18), color = p.textPrimary)
                 UpdateRow()
+                GhostButton(tr("Afficher l'assistant de bienvenue")) {
+                    app.veltrio.shared.AppPrefs.update { it.copy(onboardingDone = false) }
+                    Nav.controller?.navigate("onboarding")
+                }
                 Body(tr("Veltrio ne fournit aucun contenu : il affiche ce que renvoient les sources que vous installez."))
                 Body(tr("Lecture par libmpv (LGPL 2.1+, mpv.io) et FFmpeg (LGPL 2.1+)."))
             }

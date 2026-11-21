@@ -14,7 +14,11 @@ enum class PlaybackProfile(val label: String, val blurb: String) {
 
 /** App-wide choices (app-prefs.json). */
 @Serializable
-data class AppPrefs(val theme: AppTheme = AppTheme.Dark) {
+data class AppPrefs(
+    val theme: AppTheme = AppTheme.Dark,
+    val onboardingDone: Boolean = false,
+    val autoCheckUpdates: Boolean = true,
+) {
     companion object {
         private const val FILE = "app-prefs.json"
         var current: AppPrefs = AppPrefs()

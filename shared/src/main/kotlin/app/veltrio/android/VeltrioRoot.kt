@@ -5,16 +5,31 @@ import android.content.pm.ActivityInfo
 import android.content.pm.ApplicationInfo
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -27,15 +42,25 @@ import app.veltrio.android.screens.CatalogScreen
 import app.veltrio.android.screens.DetailScreen
 import app.veltrio.android.screens.IptvSeriesScreen
 import app.veltrio.android.screens.MediaServerSeriesScreen
+import app.veltrio.android.screens.OnboardingScreen
 import app.veltrio.android.screens.PlayerScreen
 import app.veltrio.android.screens.SearchScreen
 import app.veltrio.android.screens.SettingsScreen
+import app.veltrio.android.ui.GhostButton
+import app.veltrio.android.ui.PrimaryButton
+import app.veltrio.shared.AppPrefs
 import app.veltrio.shared.AppTheme
+import app.veltrio.shared.Core
 import app.veltrio.shared.MediaLibraryItem
 import app.veltrio.shared.MediaServer
+import app.veltrio.shared.MediaServers
 import app.veltrio.shared.PlayRequest
+import app.veltrio.shared.StremioAccount
+import app.veltrio.shared.Updater
 import app.veltrio.shared.iptv.ChannelItem
+import app.veltrio.shared.iptv.IptvStore
 import app.veltrio.shared.iptv.PlaylistRef
+import app.veltrio.shared.ui.Type
 import app.veltrio.shared.ui.VeltrioTheme
 
 /** True in the Android TV app: a remote, no touch screen. Screens adjust
@@ -102,15 +127,65 @@ fun VeltrioRoot(activity: ComponentActivity, tv: Boolean, sections: @Composable 
                     composable("pair") { app.veltrio.android.screens.PairScreen() }
                     composable("search") { SearchScreen() }
                     composable("settings") { SettingsScreen() }
+                    composable("onboarding") {
+                        OnboardingScreen {
+                            if (!controller.popBackStack()) {
+                                controller.navigate("tabs") { popUpTo("onboarding") { inclusive = true } }
+                            }
+                        }
+                    }
                 }
-                // Debug builds only: `adb shell am start … --es play_url <url>`
-                // opens the player straight away, to test it without an addon.
+
+                // Auto-update banner when a new APK has finished downloading in the background.
+                val updateState by Updater.state.collectAsState()
+                var bannerDismissed by remember { mutableStateOf(false) }
+                if (!inPlayer && updateState.step == Updater.Step.Ready && !bannerDismissed) {
+                    val p = VeltrioTheme.palette
+                    Row(
+                        Modifier
+                            .align(Alignment.TopCenter)
+                            .safeDrawingPadding()
+                            .padding(horizontal = 16.dp, vertical = 10.dp)
+                            .fillMaxWidth()
+                            .background(p.surfaceElevated)
+                            .border(1.dp, p.accent.copy(alpha = 0.5f))
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Text(
+                            tr("Veltrio %s est prêt à installer.", updateState.newVersion ?: ""),
+                            style = Type.label(13, FontWeight.SemiBold),
+                            color = p.textPrimary,
+                            modifier = Modifier.weight(1f),
+                        )
+                        PrimaryButton(tr("Installer")) { Updater.install(activity) }
+                        GhostButton(tr("Plus tard")) { bannerDismissed = true }
+                    }
+                }
+
+                // Launch hooks: Stremio history sync, silent background update check,
+                // first-launch onboarding, and debug `play_url` / `onboarding` extras.
                 val debuggable = activity.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
                 LaunchedEffect(Unit) {
+                    StremioAccount.syncOnLaunchIfNeeded()
                     val url = activity.intent.getStringExtra("play_url")
                     if (debuggable && url != null) {
                         Nav.play(PlayRequest(title = tr("Test"), subtitle = url, url = url, videoId = activity.intent.getStringExtra("video_id")))
+                        return@LaunchedEffect
                     }
+                    val forceOnboarding = debuggable && activity.intent.getBooleanExtra("onboarding", false)
+                    if (forceOnboarding) {
+                        controller.navigate("onboarding")
+                    } else if (!AppPrefs.current.onboardingDone) {
+                        val alreadyConfigured = Core.addons.value.isNotEmpty() || IptvStore.playlists.value.isNotEmpty() || MediaServers.all.any { it.state.value.connected }
+                        if (alreadyConfigured) {
+                            AppPrefs.update { it.copy(onboardingDone = true) }
+                        } else {
+                            controller.navigate("onboarding")
+                        }
+                    }
+                    Updater.checkOnLaunchIfNeeded(activity)
                 }
             }
           }
