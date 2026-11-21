@@ -1,7 +1,7 @@
 # Veltrio for Android
 
-Port of the macOS app (same features, same editorial look: true black,
-tungsten amber, serif titles), in progress. Kotlin + Jetpack Compose,
+Native Android phone and tablet app (same features and editorial look: true black,
+tungsten amber, serif titles). Kotlin + Jetpack Compose,
 minSdk 26; the player is libmpv (`dev.jdtech.mpv:libmpv`), like macOS
 and Windows.
 
@@ -42,11 +42,10 @@ which Kotlin 2.4 rejects.
 
 ## CI/CD
 
-- `ci.yml` — pushes to main, pull requests, manual runs: fetches the core, then builds and tests once
-  `settings.gradle.kts` exists. Until then it only checks the core download.
-- `release.yml` — tag `vX.Y.Z`: signed `.aab` + APK attached to the GitHub release (Play Console upload to add). Skipped until the project exists.
+- `ci.yml` — pushes to main, pull requests, manual runs: fetches the core and builds the app.
+- `release.yml` — tag `vX.Y.Z`: signed `.aab` + APK attached to the GitHub release.
 
-Organisation secrets used: `CORE_RELEASES_TOKEN` (optional: the repositories are public, so the workflow token can read core releases), `ANDROID_KEYSTORE`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`.
+Organisation secrets used: `CORE_RELEASES_TOKEN` (optional), `ANDROID_KEYSTORE`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`; optional `VELTRIO_TRAKT_CLIENT_ID`, `VELTRIO_TRAKT_CLIENT_SECRET`, `VELTRIO_SIMKL_CLIENT_ID`.
 
 ## Sending settings to a TV
 
@@ -68,3 +67,7 @@ The TV advertises `_veltrio-pair._tcp` over DNS-SD, listens on port 8765
 
 Importing is additive: nothing already on the TV is removed. Any platform
 with P-256 ECDH can send (CryptoKit on iOS / macOS, CNG on Windows).
+
+## License
+
+Dual-licensed under either of [Apache-2.0](LICENSE-APACHE) or [MIT](LICENSE-MIT). libmpv (`dev.jdtech.mpv:libmpv`) is LGPL.
