@@ -18,12 +18,14 @@ import java.io.File
  *  development build is signed differently and can't be updated so: it
  *  says so. */
 object Updater {
-    enum class Step { Idle, Checking, UpToDate, Downloading, Ready, Failed, Development }
+    enum class Step { Idle, Checking, UpToDate, Available, Downloading, Ready, Failed, Development }
 
     data class State(val step: Step = Step.Idle, val newVersion: String? = null, val progress: Float = 0f, val error: String? = null)
 
     private val _state = MutableStateFlow(State())
     val state: StateFlow<State> = _state
+    private var pendingTag: String? = null
+    private var pendingDownloadUrl: String? = null
     private var apk: File? = null
     private var didLaunchCheck = false
 
@@ -46,7 +48,8 @@ object Updater {
         check(context, silent = true)
     }
 
-    /** Looks for a newer release and downloads its APK. */
+    /** Looks for a newer release and announces it so the user can choose
+     *  whether to download and install it. */
     suspend fun check(context: Context, silent: Boolean = false) {
         if (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) {
             if (!silent) _state.value = State(Step.Development)
@@ -59,15 +62,34 @@ object Updater {
             val newest = releases.items.filter { it.bool("draft") != true }.maxWithOrNull { a, b -> compare(a.str("tag_name") ?: "", b.str("tag_name") ?: "") }
             val tag = newest?.str("tag_name")
             if (newest == null || tag == null || compare(tag, currentVersion(context)) <= 0) {
+                pendingTag = null
+                pendingDownloadUrl = null
                 if (!silent) _state.value = State(Step.UpToDate)
                 return
             }
             val asset = newest.array("assets").firstOrNull { it.str("name")?.endsWith("-release.apk") == true }
                 ?: throw ServiceException(tr("La version %s n'a pas d'APK.", tag))
-            _state.value = State(Step.Downloading, tag)
+            val url = asset.str("browser_download_url")
+                ?: throw ServiceException(tr("La version %s n'a pas d'APK.", tag))
+            pendingTag = tag
+            pendingDownloadUrl = url
+            _state.value = State(Step.Available, tag)
+        } catch (e: Exception) {
+            if (!silent) _state.value = State(Step.Failed, error = e.message ?: Core.humanize(e))
+        }
+    }
+
+    /** Downloads the announced APK (reporting progress) and hands it to
+     *  Android's installer once ready. */
+    suspend fun downloadAndInstall(context: Context) {
+        val tag = pendingTag ?: return
+        val url = pendingDownloadUrl ?: return
+        if (_state.value.step == Step.Downloading) return
+        _state.value = State(Step.Downloading, tag, 0f)
+        try {
             val target = File(context.cacheDir, "updates/veltrio-$tag.apk").apply { parentFile?.mkdirs() }
             withContext(Dispatchers.IO) {
-                Http.client.newCall(Request.Builder().url(asset.str("browser_download_url")!!).build()).execute().use { r ->
+                Http.client.newCall(Request.Builder().url(url).build()).execute().use { r ->
                     if (!r.isSuccessful) throw ServiceException(tr("GitHub a répondu %s.", r.code))
                     val total = r.body.contentLength().toFloat()
                     var done = 0L
@@ -86,9 +108,17 @@ object Updater {
             }
             apk = target
             _state.value = State(Step.Ready, tag, 1f)
+            install(context)
         } catch (e: Exception) {
-            if (!silent) _state.value = State(Step.Failed, error = e.message ?: Core.humanize(e))
+            _state.value = State(Step.Failed, error = e.message ?: Core.humanize(e))
         }
+    }
+
+    /** Debug-only helper to preview the update banner without a published APK. */
+    internal fun simulateAvailableForDebug(tag: String) {
+        pendingTag = tag
+        pendingDownloadUrl = null
+        _state.value = State(Step.Available, tag)
     }
 
     /** Hands the downloaded APK to Android's installer. */

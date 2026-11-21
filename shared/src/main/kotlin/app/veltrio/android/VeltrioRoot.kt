@@ -24,8 +24,10 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -136,11 +138,17 @@ fun VeltrioRoot(activity: ComponentActivity, tv: Boolean, sections: @Composable 
                     }
                 }
 
-                // Auto-update banner when a new APK has finished downloading in the background.
+                // Auto-update banner: announces an available release and asks before downloading.
                 val updateState by Updater.state.collectAsState()
                 var bannerDismissed by remember { mutableStateOf(false) }
-                if (!inPlayer && updateState.step == Updater.Step.Ready && !bannerDismissed) {
+                val updateScope = rememberCoroutineScope()
+                val inOnboarding = entry?.destination?.route == "onboarding"
+                val showBanner = !inPlayer && !inOnboarding && !bannerDismissed && updateState.step in setOf(
+                    Updater.Step.Available, Updater.Step.Downloading, Updater.Step.Ready,
+                )
+                if (showBanner) {
                     val p = VeltrioTheme.palette
+                    val ver = updateState.newVersion ?: ""
                     Row(
                         Modifier
                             .align(Alignment.TopCenter)
@@ -153,22 +161,40 @@ fun VeltrioRoot(activity: ComponentActivity, tv: Boolean, sections: @Composable 
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
+                        val message = when (updateState.step) {
+                            Updater.Step.Available -> tr("Une mise à jour est disponible (Veltrio %s).", ver)
+                            Updater.Step.Downloading -> tr("Téléchargement de Veltrio %s… %s %%", ver, (updateState.progress * 100).toInt())
+                            else -> tr("Veltrio %s est prêt à installer.", ver)
+                        }
                         Text(
-                            tr("Veltrio %s est prêt à installer.", updateState.newVersion ?: ""),
+                            message,
                             style = Type.label(13, FontWeight.SemiBold),
                             color = p.textPrimary,
                             modifier = Modifier.weight(1f),
                         )
-                        PrimaryButton(tr("Installer")) { Updater.install(activity) }
-                        GhostButton(tr("Plus tard")) { bannerDismissed = true }
+                        when (updateState.step) {
+                            Updater.Step.Available -> {
+                                PrimaryButton(tr("Mettre à jour")) {
+                                    updateScope.launch { Updater.downloadAndInstall(activity) }
+                                }
+                                GhostButton(tr("Plus tard")) { bannerDismissed = true }
+                            }
+                            Updater.Step.Ready -> {
+                                PrimaryButton(tr("Installer")) { Updater.install(activity) }
+                                GhostButton(tr("Plus tard")) { bannerDismissed = true }
+                            }
+                            else -> Unit
+                        }
                     }
                 }
 
                 // Launch hooks: Stremio history sync, silent background update check,
-                // first-launch onboarding, and debug `play_url` / `onboarding` extras.
+                // first-launch onboarding, and debug `play_url` / `onboarding` / `simulate_update` extras.
                 val debuggable = activity.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
                 LaunchedEffect(Unit) {
                     StremioAccount.syncOnLaunchIfNeeded()
+                    val simUpdate = if (debuggable) activity.intent.getStringExtra("simulate_update") else null
+                    if (simUpdate != null) Updater.simulateAvailableForDebug(simUpdate)
                     val url = activity.intent.getStringExtra("play_url")
                     if (debuggable && url != null) {
                         Nav.play(PlayRequest(title = tr("Test"), subtitle = url, url = url, videoId = activity.intent.getStringExtra("video_id")))

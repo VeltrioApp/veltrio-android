@@ -455,17 +455,26 @@ private fun UpdateRow() {
     val state by app.veltrio.shared.Updater.state.collectAsState()
     val step = state.step
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        if (step == app.veltrio.shared.Updater.Step.Ready) {
-            PrimaryButton(tr("Installer la version %s", state.newVersion ?: "")) { app.veltrio.shared.Updater.install(context) }
-        } else {
-            GhostButton(tr("Rechercher une mise à jour"), enabled = step != app.veltrio.shared.Updater.Step.Checking && step != app.veltrio.shared.Updater.Step.Downloading) {
-                scope.launch { app.veltrio.shared.Updater.check(context) }
+        when (step) {
+            app.veltrio.shared.Updater.Step.Available -> {
+                PrimaryButton(tr("Mettre à jour (%s)", state.newVersion ?: "")) {
+                    scope.launch { app.veltrio.shared.Updater.downloadAndInstall(context) }
+                }
+            }
+            app.veltrio.shared.Updater.Step.Ready -> {
+                PrimaryButton(tr("Installer la version %s", state.newVersion ?: "")) { app.veltrio.shared.Updater.install(context) }
+            }
+            else -> {
+                GhostButton(tr("Rechercher une mise à jour"), enabled = step != app.veltrio.shared.Updater.Step.Checking && step != app.veltrio.shared.Updater.Step.Downloading) {
+                    scope.launch { app.veltrio.shared.Updater.check(context) }
+                }
             }
         }
     }
     val status = when (step) {
         app.veltrio.shared.Updater.Step.Checking -> tr("Recherche…")
         app.veltrio.shared.Updater.Step.UpToDate -> tr("Veltrio %s est à jour.", app.veltrio.shared.Updater.currentVersion(context))
+        app.veltrio.shared.Updater.Step.Available -> tr("Une mise à jour est disponible (Veltrio %s).", state.newVersion ?: "")
         app.veltrio.shared.Updater.Step.Downloading -> tr("Téléchargement de la version %s… %s %%", state.newVersion ?: "", (state.progress * 100).toInt())
         app.veltrio.shared.Updater.Step.Ready -> tr("La version %s est prête : Android demande de confirmer l'installation.", state.newVersion ?: "")
         app.veltrio.shared.Updater.Step.Failed -> state.error
