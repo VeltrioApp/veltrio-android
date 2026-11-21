@@ -487,7 +487,7 @@ internal fun AddPlaylistDialog(onDismiss: () -> Unit) {
             TextInput(name, { name = it }, tr("Nom (facultatif)"))
             when (mode) {
                 "xtream" -> {
-                    TextInput(host, { host = it }, "Serveur (http://exemple.com:8080)")
+                    TextInput(host, { host = it }, tr("Serveur (http://exemple.com:8080)"))
                     TextInput(user, { user = it }, tr("Utilisateur"))
                     TextInput(password, { password = it }, tr("Mot de passe"), secret = true)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {

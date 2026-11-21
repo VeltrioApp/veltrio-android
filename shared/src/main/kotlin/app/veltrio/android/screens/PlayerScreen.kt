@@ -525,7 +525,7 @@ private fun LiveBadge() {
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Box(Modifier.size(7.dp).clip(CircleShape).background(p.danger))
-        Text("DIRECT", style = Type.label(11, FontWeight.Black), color = Color.White)
+        Text(tr("DIRECT"), style = Type.label(11, FontWeight.Black), color = Color.White)
     }
 }
 
@@ -776,7 +776,7 @@ private fun ChannelList(request: PlayRequest) {
     var group by remember { mutableStateOf(playing.group) }
     var open by remember { mutableStateOf(false) }
     Column(Modifier.padding(horizontal = 20.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text("BOUQUET", style = Type.eyebrow(9, 0.18f), color = Color.White.copy(alpha = 0.5f))
+        Text(tr("BOUQUET"), style = Type.eyebrow(9, 0.18f), color = Color.White.copy(alpha = 0.5f))
         Box {
             Row(
                 Modifier.fillMaxWidth().border(1.dp, Color.White.copy(alpha = 0.25f)).clickable { open = true }.padding(horizontal = 12.dp, vertical = 10.dp),

@@ -247,6 +247,8 @@ object XtreamClient {
         val raw = withContext(Dispatchers.IO) {
             Http.client.newBuilder().readTimeout(30, java.util.concurrent.TimeUnit.SECONDS).build()
                 .newCall(Request.Builder().url(url).build()).execute().use { r ->
+                    // 429, or 511 from some panels: too many requests or connections.
+                    if (r.code == 429 || r.code == 511) throw IllegalStateException(tr("Votre fournisseur IPTV limite les connexions. Réessayez dans quelques minutes."))
                     if (!r.isSuccessful) throw IllegalStateException(tr("Le serveur Xtream a répondu %s.", r.code))
                     r.body.string()
                 }
@@ -277,7 +279,7 @@ object XtreamClient {
     private fun rating(s: String?) = s?.toDoubleOrNull()?.takeIf { it > 0 }?.let { String.format(Locale.US, "%.1f", it) }
     private fun enc(s: String) = URLEncoder.encode(s, "UTF-8")
     /** Path segment escaping strict enough for passwords with / ? # : @ %. */
-    private fun seg(s: String) = URLEncoder.encode(s, "UTF-8").replace("+", "%20")
+    internal fun seg(s: String) = URLEncoder.encode(s, "UTF-8").replace("+", "%20")
 
     /** Lower case, accents removed, punctuation as spaces. */
     fun fold(s: String): String = buildString {

@@ -46,6 +46,7 @@ enum class ChannelKind { Live, Movie, Series }
 
 /** A channel, or for Xtream a film or series, in one shape so the lists and
  *  search don't need three. */
+@Serializable
 data class ChannelItem(
     val id: String,
     val name: String,

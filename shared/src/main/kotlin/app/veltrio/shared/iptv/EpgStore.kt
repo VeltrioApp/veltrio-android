@@ -58,9 +58,20 @@ object EpgStore {
         _loading.value = true
         job = scope.launch {
             try {
+                // The guide kept in the cache, while it's fresh: providers
+                // limit requests, and this one is tens of megabytes.
+                val kept = if (force) null else IptvCache.loadGuide(playlist.id)
+                if (kept != null) {
+                    loadedAt = kept.third
+                    apply(playlist.id, kept.first, kept.second)
+                    return@launch
+                }
                 val url = guideUrl(playlist)
                 if (url == null) apply(playlist.id, emptyMap(), emptyMap())
-                else fetchAndParse(url, live).let { (p, m) -> apply(playlist.id, p, m) }
+                else fetchAndParse(url, live).let { (p, m) ->
+                    apply(playlist.id, p, m)
+                    IptvCache.saveGuide(playlist.id, p, m)
+                }
             } catch (e: Exception) {
                 error = tr("Guide TV indisponible : %s", e.message)
                 apply(playlist.id, emptyMap(), emptyMap())

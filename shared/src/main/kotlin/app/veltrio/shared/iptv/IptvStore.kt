@@ -6,6 +6,8 @@ import android.net.Uri
 import app.veltrio.shared.SecretStore
 import app.veltrio.shared.Storage
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -117,6 +119,7 @@ object IptvStore {
     fun remove(playlist: PlaylistRef) {
         _playlists.value = _playlists.value.filter { it.id != playlist.id }
         cache.keys.filter { it.first == playlist.id }.forEach { cache.remove(it) }
+        IptvCache.remove(playlist.id)
         if (playlist.isXtream) SecretStore.set(secretName(playlist.id), null)
         localFile(playlist).delete()
         save()
@@ -127,7 +130,9 @@ object IptvStore {
     // -------------------- content --------------------
 
     /** Live channels (M3U or Xtream), or an Xtream account's films or
-     *  series. Loaded once per session unless [refresh]. */
+     *  series. Loaded once per session unless [refresh], and from the copy
+     *  in [IptvCache] while it's fresh: the provider isn't asked at every
+     *  start. A stale copy is still used when the provider can't be reached. */
     suspend fun items(playlist: PlaylistRef, kind: ChannelKind = ChannelKind.Live, refresh: Boolean = false): List<ChannelItem> {
         if (!playlist.isXtream && kind != ChannelKind.Live) return emptyList()
         val key = playlist.id to kind
@@ -135,10 +140,17 @@ object IptvStore {
         if (!refresh && existing != null && !(existing.isCompleted && existing.getCompletionExceptionOrNull() != null)) return existing.await()
         val deferred = CompletableDeferred<List<ChannelItem>>()
         cache[key] = deferred
+        val kept = if (refresh) null else withContext(Dispatchers.IO) { IptvCache.load(playlist, kind) }
+        if (kept != null && kept.isFresh) {
+            deferred.complete(kept.items)
+            return kept.items
+        }
         try {
-            deferred.complete(load(playlist, kind))
+            val items = load(playlist, kind)
+            withContext(Dispatchers.IO) { IptvCache.save(playlist, kind, items) }
+            deferred.complete(items)
         } catch (e: Exception) {
-            deferred.completeExceptionally(e)
+            if (kept != null) deferred.complete(kept.items) else deferred.completeExceptionally(e)
         }
         return deferred.await()
     }

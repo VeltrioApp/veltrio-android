@@ -77,7 +77,7 @@ private fun Receive() {
         Eyebrow(tr("Code"))
         Text(state.code.chunked(3).joinToString(" "), style = Type.mono(72, FontWeight.Bold), color = p.accentText)
         Text(state.name, style = Type.mono(13), color = p.textTertiary)
-        if (state.addresses.isNotEmpty()) Text("Adresse : ${state.addresses.joinToString("  ·  ")}", style = Type.mono(13), color = p.textTertiary)
+        if (state.addresses.isNotEmpty()) Text(tr("Adresse : %s", state.addresses.joinToString("  ·  ")), style = Type.mono(13), color = p.textTertiary)
         when {
             state.busy -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 CircularProgressIndicator(color = p.accent, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))

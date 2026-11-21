@@ -101,7 +101,7 @@ internal fun MediaServerCard(server: MediaServer) {
                 PrimaryButton(tr("Se connecter"), loading = state.busy) { server.startPinFlow() }
             }
             server is MediaBrowserServer -> {
-                TextInput(host, { host = it }, "Adresse (http://192.168.1.10:8096)")
+                TextInput(host, { host = it }, tr("Adresse (http://192.168.1.10:8096)"))
                 TextInput(user, { user = it }, tr("Utilisateur"))
                 TextInput(password, { password = it }, tr("Mot de passe"), secret = true)
                 PrimaryButton(tr("Se connecter"), enabled = host.isNotBlank() && user.isNotBlank(), loading = state.busy) { server.connect(host, user, password) }

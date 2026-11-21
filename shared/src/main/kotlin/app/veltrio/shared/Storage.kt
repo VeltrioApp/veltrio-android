@@ -24,6 +24,7 @@ object Storage {
         PlayerPrefs.load()
         Core.init(context)
         WatchStore.init()
+        app.veltrio.shared.iptv.IptvCache.init(context)
         app.veltrio.shared.iptv.IptvStore.init()
         DownloadManager.init(context)
         Pairing.init(context)
