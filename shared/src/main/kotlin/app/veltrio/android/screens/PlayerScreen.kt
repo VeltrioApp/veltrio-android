@@ -98,8 +98,11 @@ import androidx.lifecycle.LifecycleEventObserver
 import app.veltrio.android.LocalTv
 import app.veltrio.android.Nav
 import androidx.compose.foundation.focusable
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
@@ -233,8 +236,8 @@ fun PlayerScreen(request: PlayRequest) {
     }
 
     // Controls fade after a few seconds of playback without a touch.
-    LaunchedEffect(controls, touched, state.paused, panel) {
-        if (controls && !state.paused && panel == null) {
+    LaunchedEffect(controls, touched, state.paused, panel, scrub) {
+        if (controls && !state.paused && panel == null && scrub == null) {
             delay(3500)
             controls = false
         }
@@ -250,6 +253,7 @@ fun PlayerScreen(request: PlayRequest) {
     val tv = LocalTv.current
     BackHandler {
         when {
+            scrub != null -> scrub = null
             panel != null -> panel = null
             // With a remote, Back first hides the controls, as on macOS Escape
             // first leaves full screen.
@@ -259,12 +263,23 @@ fun PlayerScreen(request: PlayRequest) {
     }
 
     // The remote (and a keyboard): play / pause, ±10 s while the controls are
-    // hidden, any other direction shows them, channel up / down zaps.
+    // hidden (opening the bar so you can keep scrubbing), any other direction
+    // shows them, channel up / down zaps.
     val rootFocus = remember { FocusRequester() }
     val playFocus = remember { FocusRequester() }
+    val seekFocus = remember { FocusRequester() }
+    val topBarFocus = remember { FocusRequester() }
     LaunchedEffect(controls, panel, endOverlay) {
         if (panel != null || endOverlay) return@LaunchedEffect
-        runCatching { if (controls && tv) playFocus.requestFocus() else rootFocus.requestFocus() }
+        if (controls && tv) {
+            // Wait one frame for AnimatedVisibility to attach BottomBar nodes.
+            withFrameNanos {}
+            runCatching {
+                if (!request.isLive) seekFocus.requestFocus() else playFocus.requestFocus()
+            }
+        } else if (!controls) {
+            runCatching { rootFocus.requestFocus() }
+        }
     }
     fun zap(step: Int) {
         val playlist = request.playlist ?: return
@@ -283,13 +298,13 @@ fun PlayerScreen(request: PlayRequest) {
             Key.MediaPause -> { player.setPaused(true); return true }
             Key.ChannelUp, Key.PageUp -> { zap(-1); return request.isLive }
             Key.ChannelDown, Key.PageDown -> { zap(1); return request.isLive }
-            Key.MediaFastForward -> { if (!request.isLive) player.skip(30.0); return true }
-            Key.MediaRewind -> { if (!request.isLive) player.skip(-30.0); return true }
+            Key.MediaFastForward -> { if (!request.isLive) { player.skip(30.0); controls = true }; return true }
+            Key.MediaRewind -> { if (!request.isLive) { player.skip(-30.0); controls = true }; return true }
         }
         if (controls) return false
         when (event.key) {
-            Key.DirectionLeft -> if (!request.isLive) player.skip(-10.0) else zap(-1)
-            Key.DirectionRight -> if (!request.isLive) player.skip(10.0) else zap(1)
+            Key.DirectionLeft -> if (!request.isLive) { player.skip(-10.0); controls = true } else zap(-1)
+            Key.DirectionRight -> if (!request.isLive) { player.skip(10.0); controls = true } else zap(1)
             Key.DirectionCenter, Key.Enter, Key.NumPadEnter, Key.DirectionUp -> controls = true
             Key.DirectionDown -> if (request.isLive && request.playlist != null) panel = Panel.Channels else controls = true
             else -> return false
@@ -345,7 +360,7 @@ fun PlayerScreen(request: PlayRequest) {
 
         AnimatedVisibility(controls && error == null, enter = fadeIn(), exit = fadeOut()) {
             Box(Modifier.fillMaxSize()) {
-                TopBar(request, state, Modifier.align(Alignment.TopCenter), onReplay = { replay = true }) {
+                TopBar(request, state, Modifier.align(Alignment.TopCenter), topBarFocus, downFocus = if (!request.isLive) seekFocus else playFocus, onReplay = { replay = true }) {
                     panel = if (panel == it) null else it
                     touched++
                 }
@@ -356,6 +371,8 @@ fun PlayerScreen(request: PlayRequest) {
                     onToggle = { player.togglePause(); touched++ },
                     onSkip = { player.skip(it); touched++ },
                     playFocus = playFocus,
+                    seekFocus = seekFocus,
+                    topBarFocus = topBarFocus,
                 )
             }
         }
@@ -474,15 +491,25 @@ fun PlayerScreen(request: PlayRequest) {
 }
 
 @Composable
-private fun TopBar(request: PlayRequest, state: PlayerState, modifier: Modifier, onReplay: () -> Unit, onPanel: (Panel) -> Unit) {
+private fun TopBar(
+    request: PlayRequest,
+    state: PlayerState,
+    modifier: Modifier,
+    backFocus: FocusRequester,
+    downFocus: FocusRequester,
+    onReplay: () -> Unit,
+    onPanel: (Panel) -> Unit,
+) {
     Row(
         modifier.fillMaxWidth()
             .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.65f), Color.Transparent)))
-            .safeDrawingPadding().padding(horizontal = 20.dp, vertical = 14.dp),
+            .safeDrawingPadding().padding(horizontal = 20.dp, vertical = 14.dp)
+            .focusProperties { down = downFocus },
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Row(
             Modifier.clip(CircleShape).background(Color.White.copy(alpha = 0.14f)).border(1.dp, Color.White.copy(alpha = 0.18f), CircleShape)
+                .focusRequester(backFocus)
                 .clickable { Nav.back() }.padding(horizontal = 14.dp, vertical = 9.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
@@ -534,6 +561,8 @@ private fun BottomBar(
     request: PlayRequest, state: PlayerState, scrub: Double?, modifier: Modifier,
     onScrub: (Double) -> Unit, onCommit: (Double) -> Unit, onToggle: () -> Unit, onSkip: (Double) -> Unit,
     playFocus: FocusRequester,
+    seekFocus: FocusRequester,
+    topBarFocus: FocusRequester,
 ) {
     Column(
         modifier.fillMaxWidth()
@@ -545,11 +574,18 @@ private fun BottomBar(
         if (!request.isLive) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(format(shown), style = Type.mono(11, FontWeight.Bold), color = Color.White, modifier = Modifier.width(58.dp))
-                SeekBar(shown, state.duration, state.chapters.map { it.start }, Modifier.weight(1f), onScrub, onCommit)
+                SeekBar(
+                    shown, state.duration, state.chapters.map { it.start },
+                    Modifier.weight(1f).focusProperties { up = topBarFocus; down = playFocus },
+                    seekFocus, onScrub, onCommit, onToggle,
+                )
                 Text("-" + format((state.duration - shown).coerceAtLeast(0.0)), style = Type.mono(11, FontWeight.Bold), color = Color.White.copy(alpha = 0.75f), modifier = Modifier.width(58.dp), textAlign = TextAlign.End)
             }
         }
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        Row(
+            Modifier.focusProperties { up = if (!request.isLive) seekFocus else topBarFocus },
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
             if (!request.isLive) ControlButton(Icons.Filled.Replay10, tr("Reculer de 10 s")) { onSkip(-10.0) }
             Box(Modifier.size(52.dp).clip(CircleShape).background(Color.White).focusRequester(playFocus).clickable(onClick = onToggle), contentAlignment = Alignment.Center) {
                 Icon(if (state.paused) Icons.Filled.PlayArrow else Icons.Filled.Pause, if (state.paused) tr("Lire") else tr("Pause"), Modifier.size(26.dp), tint = Color.Black)
@@ -569,32 +605,122 @@ private fun ControlButton(icon: ImageVector, description: String, onClick: () ->
     }
 }
 
-/** The macOS slider: a 4 dp rail that thickens with a knob while dragged,
- *  the played part in amber, chapter marks in the rail. */
+/** The macOS slider: a 4 dp rail that thickens with a knob while dragged or
+ *  focused on TV, the played part in amber, chapter marks in the rail. On a
+ *  remote or keyboard, Left/Right scrub progressively and commit on release. */
 @Composable
-private fun SeekBar(value: Double, duration: Double, chapters: List<Double>, modifier: Modifier, onScrub: (Double) -> Unit, onCommit: (Double) -> Unit) {
+private fun SeekBar(
+    value: Double,
+    duration: Double,
+    chapters: List<Double>,
+    modifier: Modifier,
+    focusRequester: FocusRequester,
+    onScrub: (Double) -> Unit,
+    onCommit: (Double) -> Unit,
+    onToggle: () -> Unit,
+) {
     val p = VeltrioTheme.palette
     var dragging by remember { mutableStateOf(false) }
     var dragValue by remember { mutableDoubleStateOf(0.0) }
+    var focused by remember { mutableStateOf(false) }
+    var keyScrubbing by remember { mutableStateOf(false) }
+    var keyTarget by remember { mutableDoubleStateOf(0.0) }
     val max = duration.coerceAtLeast(0.000001)
-    BoxWithConstraints(
-        modifier.height(28.dp)
+    val shape = RoundedCornerShape(16.dp)
+    Box(
+        modifier
+            .height(32.dp)
+            .clip(shape)
             .then(
-                if (duration <= 0) Modifier
-                else Modifier.pointerInput(duration) {
-                    detectTapGestures { onCommit((it.x / size.width).coerceIn(0f, 1f) * max) }
-                }.pointerInputDrag(max, onStart = { dragging = true; dragValue = it; onScrub(it) }, onMove = { dragValue = it; onScrub(it) }, onEnd = { dragging = false; onCommit(dragValue) }),
-            ),
-        contentAlignment = Alignment.CenterStart,
+                if (focused) Modifier.background(p.accent.copy(alpha = 0.14f)).border(2.dp, p.accent, shape)
+                else Modifier,
+            )
+            .focusRequester(focusRequester)
+            .onFocusChanged { state ->
+                val wasFocused = focused
+                focused = state.isFocused
+                if (wasFocused && !focused && keyScrubbing) {
+                    keyScrubbing = false
+                    onCommit(keyTarget)
+                }
+            }
+            .onKeyEvent { event ->
+                when (event.key) {
+                    Key.DirectionLeft, Key.DirectionRight -> {
+                        if (duration <= 0) return@onKeyEvent true
+                        when (event.type) {
+                            KeyEventType.KeyDown -> {
+                                val repeat = event.nativeKeyEvent.repeatCount
+                                val step = when {
+                                    repeat >= 15 -> maxOf(60.0, duration / 40.0).coerceAtMost(120.0)
+                                    repeat >= 5 -> 30.0
+                                    else -> 10.0
+                                }
+                                val base = if (keyScrubbing) keyTarget else value
+                                val delta = if (event.key == Key.DirectionLeft) -step else step
+                                val next = (base + delta).coerceIn(0.0, duration)
+                                keyScrubbing = true
+                                keyTarget = next
+                                onScrub(next)
+                                true
+                            }
+                            KeyEventType.KeyUp -> {
+                                if (keyScrubbing) {
+                                    keyScrubbing = false
+                                    onCommit(keyTarget)
+                                }
+                                true
+                            }
+                            else -> false
+                        }
+                    }
+                    Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
+                        if (event.type == KeyEventType.KeyDown) {
+                            if (keyScrubbing) {
+                                keyScrubbing = false
+                                onCommit(keyTarget)
+                            } else {
+                                onToggle()
+                            }
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                    else -> false
+                }
+            }
+            .focusable()
+            .padding(horizontal = 8.dp),
+        contentAlignment = Alignment.Center,
     ) {
-        val fraction = (value / max).coerceIn(0.0, 1.0).toFloat()
-        val rail = if (dragging) 8.dp else 4.dp
-        Box(Modifier.fillMaxWidth().height(rail).clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.18f)))
-        Box(Modifier.fillMaxWidth(fraction).height(rail).clip(RoundedCornerShape(50)).background(p.accent))
-        chapters.filter { it > 0 && it < max }.forEach { start ->
-            Box(Modifier.offset(x = maxWidth * (start / max).toFloat() - 1.dp).width(2.dp).height(rail + 4.dp).background(Color.White.copy(alpha = 0.65f)))
+        BoxWithConstraints(
+            Modifier.fillMaxSize()
+                .then(
+                    if (duration <= 0) Modifier
+                    else Modifier.pointerInput(duration) {
+                        detectTapGestures { onCommit((it.x / size.width).coerceIn(0f, 1f) * max) }
+                    }.pointerInputDrag(max, onStart = { dragging = true; dragValue = it; onScrub(it) }, onMove = { dragValue = it; onScrub(it) }, onEnd = { dragging = false; onCommit(dragValue) }),
+                ),
+            contentAlignment = Alignment.CenterStart,
+        ) {
+            val active = dragging || focused
+            val fraction = (value / max).coerceIn(0.0, 1.0).toFloat()
+            val rail = if (active) 8.dp else 4.dp
+            val knobSize = if (focused) 16.dp else 14.dp
+            Box(Modifier.fillMaxWidth().height(rail).clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.18f)))
+            Box(Modifier.fillMaxWidth(fraction).height(rail).clip(RoundedCornerShape(50)).background(p.accent))
+            chapters.filter { it > 0 && it < max }.forEach { start ->
+                Box(Modifier.offset(x = maxWidth * (start / max).toFloat() - 1.dp).width(2.dp).height(rail + 4.dp).background(Color.White.copy(alpha = 0.65f)))
+            }
+            if (active) {
+                val knobX = (maxWidth * fraction - knobSize / 2).coerceIn(0.dp, (maxWidth - knobSize).coerceAtLeast(0.dp))
+                Box(
+                    Modifier.offset(x = knobX).size(knobSize).clip(CircleShape).background(Color.White)
+                        .then(if (focused) Modifier.border(2.dp, p.accent, CircleShape) else Modifier),
+                )
+            }
         }
-        if (dragging) Box(Modifier.offset(x = maxWidth * fraction - 7.dp).size(14.dp).clip(CircleShape).background(Color.White))
     }
 }
 
