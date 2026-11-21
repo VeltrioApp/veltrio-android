@@ -159,7 +159,7 @@ object IptvStore {
     fun loaded(playlist: PlaylistRef, kind: ChannelKind = ChannelKind.Live): List<ChannelItem>? =
         cache[playlist.id to kind]?.takeIf { it.isCompleted && it.getCompletionExceptionOrNull() == null }?.getCompleted()
 
-    private suspend fun load(playlist: PlaylistRef, kind: ChannelKind): List<ChannelItem> {
+    private suspend fun load(playlist: PlaylistRef, kind: ChannelKind): List<ChannelItem> = withContext(Dispatchers.Default) {
         val account = playlist.xtream
         val items = when {
             account != null -> when (kind) {
@@ -172,7 +172,7 @@ object IptvStore {
             else -> client.loadPlaylist(playlist.url).channels.map(ChannelItem::from)
         }
         // Channel numbers follow the playlist's order.
-        return items.mapIndexed { i, c -> c.copy(number = i + 1) }
+        items.mapIndexed { i, c -> c.copy(number = i + 1) }
     }
 
     /** Live channels of every playlist whose name matches, then the films and

@@ -44,7 +44,7 @@ object XtreamClient {
 
     // -------------------- catalogues --------------------
 
-    suspend fun live(account: XtreamAccount): List<ChannelItem> = coroutineScope {
+    suspend fun live(account: XtreamAccount): List<ChannelItem> = withContext(Dispatchers.Default) { coroutineScope {
         val categories = async { categories(get(account, "get_live_categories")) }
         val ext = account.output.ifEmpty { "ts" }
         val rows = rows(get(account, "get_live_streams"))
@@ -61,20 +61,20 @@ object XtreamClient {
                 archiveDays = if (text(s, "tv_archive") == "1") maxOf(text(s, "tv_archive_duration")?.toIntOrNull() ?: 1, 1) else 0,
             )
         }
-    }
+    } }
 
-    suspend fun movies(account: XtreamAccount): List<ChannelItem> {
+    suspend fun movies(account: XtreamAccount): List<ChannelItem> = withContext(Dispatchers.Default) {
         val categories = categoriesFor(account, "get_vod_categories")
         val rows = rows(get(account, "get_vod_streams"))
         remember(account, "get_vod_streams", rows)
-        return rows.mapNotNull { movie(account, it, categories) }
+        rows.mapNotNull { movie(account, it, categories) }
     }
 
-    suspend fun series(account: XtreamAccount): List<ChannelItem> {
+    suspend fun series(account: XtreamAccount): List<ChannelItem> = withContext(Dispatchers.Default) {
         val categories = categoriesFor(account, "get_series_categories")
         val rows = rows(get(account, "get_series"))
         remember(account, "get_series", rows)
-        return rows.mapNotNull { series(it, categories) }
+        rows.mapNotNull { series(it, categories) }
     }
 
     private fun movie(account: XtreamAccount, s: JsonElement, categories: Map<String, String>): ChannelItem? {
@@ -104,7 +104,7 @@ object XtreamClient {
      *  a search= parameter on the list endpoints; many ignore it and send
      *  everything, so rows are also matched here, and such a full answer is
      *  kept for 15 minutes so the next search filters it locally. */
-    suspend fun search(account: XtreamAccount, rawQuery: String, limit: Int = 40): List<ChannelItem> = coroutineScope {
+    suspend fun search(account: XtreamAccount, rawQuery: String, limit: Int = 40): List<ChannelItem> = withContext(Dispatchers.Default) { coroutineScope {
         val query = rawQuery.trim().ifEmpty { return@coroutineScope emptyList() }
         val films = async { searchRows(account, "get_vod_streams", query) }
         val series = async { searchRows(account, "get_series", query) }
@@ -113,7 +113,7 @@ object XtreamClient {
         val result = films.await().filter { titleMatches(text(it, "name"), query) }.take(limit).mapNotNull { movie(account, it, vodCategories.await()) } +
             series.await().filter { titleMatches(text(it, "name"), query) }.take(limit).mapNotNull { series(it, seriesCategories.await()) }
         result.take(limit)
-    }
+    } }
 
     private suspend fun searchRows(account: XtreamAccount, action: String, query: String): List<JsonElement> {
         remembered(account, action)?.let { return it }
@@ -255,10 +255,14 @@ object XtreamClient {
         }
         val text = raw.trim('﻿', ' ', '\r', '\n', '\t')
         if (text.isEmpty()) return JsonNull
-        val json = try {
-            Storage.json.parseToJsonElement(text)
-        } catch (_: Exception) {
-            throw IllegalStateException(tr("Réponse Xtream illisible."))
+        // Off the main thread: a provider's catalogue is tens of megabytes,
+        // and parsing it there froze the TV until Android killed the app.
+        val json = withContext(Dispatchers.Default) {
+            try {
+                Storage.json.parseToJsonElement(text)
+            } catch (_: Exception) {
+                throw IllegalStateException(tr("Réponse Xtream illisible."))
+            }
         }
         // An object where a list was expected: an error envelope; bad
         // credentials say so with user_info.auth = 0.
