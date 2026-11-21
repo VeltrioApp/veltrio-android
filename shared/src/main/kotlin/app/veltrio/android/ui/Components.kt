@@ -1,10 +1,14 @@
 package app.veltrio.android.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.runtime.remember
+import app.veltrio.android.LocalTv
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -88,9 +92,12 @@ fun Eyebrow(text: String, color: Color = VeltrioTheme.palette.accentText, modifi
 @Composable
 fun PrimaryButton(text: String, modifier: Modifier = Modifier, icon: ImageVector? = null, enabled: Boolean = true, loading: Boolean = false, onClick: () -> Unit) {
     val p = VeltrioTheme.palette
+    val tv = LocalTv.current
+    val interaction = remember { MutableInteractionSource() }
+    val indication = if (tv) FocusRing(Color.White, contrast = true) else LocalIndication.current
     Row(
         modifier.background(if (enabled) p.accent else p.accent.copy(alpha = 0.4f))
-            .clickable(enabled = enabled && !loading, onClick = onClick)
+            .clickable(interactionSource = interaction, indication = indication, enabled = enabled && !loading, onClick = onClick)
             .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
     ) {
@@ -118,10 +125,13 @@ fun GhostButton(text: String, modifier: Modifier = Modifier, icon: ImageVector? 
 @Composable
 fun Chip(label: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val p = VeltrioTheme.palette
+    val tv = LocalTv.current
+    val interaction = remember { MutableInteractionSource() }
+    val indication = if (selected && tv) FocusRing(Color.White, contrast = true) else LocalIndication.current
     Box(
         modifier.background(if (selected) p.accent else Color.Transparent)
             .border(1.dp, if (selected) p.accent else p.borderStrong)
-            .clickable(onClick = onClick)
+            .clickable(interactionSource = interaction, indication = indication, onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 7.dp),
     ) {
         Text(label.uppercase(), style = Type.label(11, androidx.compose.ui.text.font.FontWeight.Bold), color = if (selected) p.onAccent else p.textSecondary)
