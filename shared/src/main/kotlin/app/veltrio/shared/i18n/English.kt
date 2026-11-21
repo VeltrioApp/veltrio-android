@@ -46,6 +46,7 @@ internal object English {
         "Équilibré" to "Balanced",
         "Qualité maximale" to "Max quality",
         "Automatique" to "Automatic",
+        "Matériel (direct, sans sous-titres)" to "Hardware (direct, no subtitles)",
         "Français" to "French",
         "Anglais" to "English",
         "Espagnol" to "Spanish",

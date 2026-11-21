@@ -58,14 +58,29 @@ class MpvPlayer(context: Context) : SurfaceHolder.Callback, MPVLib.EventObserver
     private val _state = MutableStateFlow(PlayerState())
     val state: StateFlow<PlayerState> = _state
     private var released = false
+    /** The decoding chosen at start, and the output it needs. */
+    private var hwdec = "mediacodec-copy"
+    private val videoOutput get() = if (hwdec == "mediacodec") "mediacodec_embed" else "gpu"
 
     init {
         with(mpv) {
-            setOptionString("vo", "gpu")
-            setOptionString("gpu-context", "android")
-            setOptionString("opengl-es", "yes")
             val prefs = app.veltrio.shared.PlayerPrefs.current
-            setOptionString("hwdec", prefs.hwdec)
+            // Direct decoding hands frames straight to the screen (the only
+            // way a weak TV box plays 4K HEVC smoothly) but needs mpv's
+            // mediacodec_embed output, which draws no subtitles; the copy
+            // goes through the GPU output and its subtitles.
+            hwdec = when (prefs.hwdec) {
+                "auto" -> if (app.veltrio.shared.Device.isTv) "mediacodec" else "mediacodec-copy"
+                else -> prefs.hwdec
+            }
+            if (hwdec == "mediacodec") {
+                setOptionString("vo", videoOutput)
+            } else {
+                setOptionString("vo", videoOutput)
+                setOptionString("gpu-context", "android")
+                setOptionString("opengl-es", "yes")
+            }
+            setOptionString("hwdec", hwdec)
             setOptionString("hwdec-codecs", "h264,hevc,mpeg4,mpeg2video,vp8,vp9,av1")
             setOptionString("ao", "audiotrack,opensles")
             setOptionString("tls-verify", "no")
@@ -171,7 +186,7 @@ class MpvPlayer(context: Context) : SurfaceHolder.Callback, MPVLib.EventObserver
         if (released) return
         mpv.attachSurface(holder.surface)
         mpv.setOptionString("force-window", "yes")
-        mpv.setPropertyString("vo", "gpu")
+        mpv.setPropertyString("vo", videoOutput)
     }
 
     override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {

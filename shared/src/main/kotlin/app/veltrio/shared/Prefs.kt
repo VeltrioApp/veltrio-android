@@ -39,8 +39,10 @@ data class PlayerPrefs(
     /** ISO 639-2 codes; empty = no preference (the file's default track). */
     val audioLang: String = "fre",
     val subtitleLang: String = "fre",
-    /** mpv's hwdec: mediacodec-copy (safe), mediacodec (faster, no filters) or no. */
-    val hwdec: String = "mediacodec-copy",
+    /** mpv's hwdec: auto (direct on a TV, copy on a phone), mediacodec-copy
+     *  (safe, subtitles drawn), mediacodec (direct: smooth on a weak TV box,
+     *  no subtitles) or no. */
+    val hwdec: String = "auto",
     /** Read-ahead buffer for network streams, in MiB. */
     val cacheMiB: Int = 64,
     val profile: PlaybackProfile = PlaybackProfile.Balanced,
@@ -68,7 +70,7 @@ data class PlayerPrefs(
             "chi" to tr("Chinois"), "ara" to tr("Arabe"), "dut" to tr("Néerlandais"), "swe" to tr("Suédois"), "pol" to tr("Polonais"),
             "tur" to tr("Turc"), "hin" to tr("Hindi"),
         )
-        val decoders = listOf("mediacodec-copy" to tr("Matériel (sûr)"), "mediacodec" to tr("Matériel (direct)"), "no" to tr("Logiciel"))
+        val decoders = listOf("auto" to tr("Automatique"), "mediacodec-copy" to tr("Matériel (sûr)"), "mediacodec" to tr("Matériel (direct, sans sous-titres)"), "no" to tr("Logiciel"))
         val cacheSizes = listOf(32, 64, 150, 300)
         val toneMappings = listOf(
             "auto" to tr("Automatique"), "bt.2446a" to tr("BT.2446a (équilibré)"), "bt.2390" to tr("BT.2390 (cinéma)"),
