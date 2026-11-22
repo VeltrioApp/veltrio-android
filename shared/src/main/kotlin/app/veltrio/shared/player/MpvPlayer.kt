@@ -169,6 +169,12 @@ class MpvPlayer(context: Context) : SurfaceHolder.Callback, MPVLib.EventObserver
 
     fun addSubtitle(url: String, title: String) = mpv.command(arrayOf("sub-add", url, "select", title))
 
+    fun setSubtitleAppearance(scale: Float, color: String) {
+        if (released) return
+        mpv.setPropertyDouble("sub-scale", scale.toDouble())
+        mpv.setPropertyString("sub-color", color)
+    }
+
     /** "fit", "fill" (crop to the screen) or "stretch". */
     fun setAspect(mode: String) {
         mpv.setPropertyDouble("panscan", if (mode == "fill") 1.0 else 0.0)

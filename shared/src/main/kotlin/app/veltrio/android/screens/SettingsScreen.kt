@@ -108,16 +108,11 @@ fun SettingsScreen() {
             Section(5, tr("Apparence")) {
                 Body(tr("Langue de l'application (synchronise aussi les catalogues TMDB)."))
                 val currentLang = app.veltrio.shared.i18n.Lang.code
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     AppPrefs.appLanguages.forEach { (code, label) ->
                         Chip(label, currentLang == code) {
                             AppPrefs.update { it.copy(appLanguage = code) }
-                            val tmdbLang = when (code) {
-                                "fr" -> "fr-FR"
-                                "en" -> "en-US"
-                                else -> if (app.veltrio.shared.i18n.Lang.french) "fr-FR" else "en-US"
-                            }
-                            app.veltrio.shared.TmdbService.setLanguage(tmdbLang)
+                            app.veltrio.shared.TmdbService.setLanguage(app.veltrio.shared.i18n.Lang.tmdbLanguage(code))
                         }
                     }
                 }

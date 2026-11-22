@@ -5,29 +5,45 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import java.util.Locale
 
-/** The app's text, as macOS does it: written out in the code (in French,
- *  this app's first language) and looked up in [English] when the app is
- *  in English. Placeholders are `%s` / `%d`, filled from [args], so the
- *  key doesn't change with the values. A missing entry shows the French text. */
+/** The app's text: written in French in code and looked up in the chosen
+ *  language (fr, en, es, de, it) with English fallback for secondary labels. */
 fun tr(text: String, vararg args: Any?): String {
-    val pattern = if (Lang.french) text else English.strings[text] ?: text
+    val lang = Lang.resolvedCode
+    val pattern = when (lang) {
+        "fr" -> text
+        "en" -> English.strings[text] ?: text
+        else -> Translations.forLang(lang)[text] ?: English.strings[text] ?: text
+    }
     return if (args.isEmpty()) pattern.replace("%%", "%") else runCatching { pattern.format(*args) }.getOrDefault(pattern)
 }
 
 object Lang {
-    /** "" = follow system, "fr" = French, "en" = English. Compose state so
-     *  switching language in Settings or Onboarding recomposes live. */
+    /** "" = follow system, "fr" / "en" / "es" / "de" / "it". */
     var code by mutableStateOf("")
         private set
 
-    val french: Boolean
+    val resolvedCode: String
         get() = when (code) {
-            "fr" -> true
-            "en" -> false
-            else -> Locale.getDefault().language == "fr"
+            "fr", "en", "es", "de", "it" -> code
+            else -> when (Locale.getDefault().language.lowercase()) {
+                "fr" -> "fr"
+                "es" -> "es"
+                "de" -> "de"
+                "it" -> "it"
+                else -> "en"
+            }
         }
 
-    val resolvedCode: String get() = if (french) "fr" else "en"
+    val french: Boolean get() = resolvedCode == "fr"
+
+    fun tmdbLanguage(forCode: String = code): String = when (forCode) {
+        "fr" -> "fr-FR"
+        "en" -> "en-US"
+        "es" -> "es-ES"
+        "de" -> "de-DE"
+        "it" -> "it-IT"
+        else -> tmdbLanguage(resolvedCode)
+    }
 
     fun set(newCode: String) {
         code = newCode

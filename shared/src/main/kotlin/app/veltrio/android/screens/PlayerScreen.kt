@@ -425,6 +425,35 @@ fun PlayerScreen(request: PlayRequest) {
                                 addedSubtitles = addedSubtitles + sub.url
                             }
                         }
+                        if (request.contentType in setOf("movie", "series")) {
+                            val subQueryId = request.videoId ?: request.contentId
+                            if (subQueryId != null && subQueryId.startsWith("tt")) {
+                                Option(tr("Rechercher OpenSubtitles"), null, false) {
+                                    scope.launch {
+                                        val found = SubtitleFetcher.searchOpenSubtitles(request.contentType!!, subQueryId)
+                                        val existing = addonSubtitles.map { it.url }.toSet()
+                                        addonSubtitles = addonSubtitles + found.filter { it.url !in existing }
+                                    }
+                                }
+                            }
+                        }
+                        var subPrefs by remember { mutableStateOf(PlayerPrefs.current) }
+                        Text(tr("Taille des sous-titres").uppercase(), style = Type.eyebrow(9, 0.18f), color = Color.White.copy(alpha = 0.5f), modifier = Modifier.padding(start = 20.dp, top = 14.dp))
+                        PlayerPrefs.subtitleScales.forEach { (scale, label) ->
+                            Option(label, null, kotlin.math.abs(subPrefs.subtitleScale - scale) < 0.01f) {
+                                PlayerPrefs.update { it.copy(subtitleScale = scale) }
+                                subPrefs = PlayerPrefs.current
+                                player.setSubtitleAppearance(scale, subPrefs.subtitleColor)
+                            }
+                        }
+                        Text(tr("Couleur des sous-titres").uppercase(), style = Type.eyebrow(9, 0.18f), color = Color.White.copy(alpha = 0.5f), modifier = Modifier.padding(start = 20.dp, top = 12.dp))
+                        PlayerPrefs.subtitleColors.forEach { (hex, label) ->
+                            Option(label, null, subPrefs.subtitleColor == hex) {
+                                PlayerPrefs.update { it.copy(subtitleColor = hex) }
+                                subPrefs = PlayerPrefs.current
+                                player.setSubtitleAppearance(subPrefs.subtitleScale, hex)
+                            }
+                        }
                         // Out of sync: shift them, as macOS's Z / X.
                         Text(tr("DÉCALAGE"), style = Type.eyebrow(9, 0.18f), color = Color.White.copy(alpha = 0.5f), modifier = Modifier.padding(start = 20.dp, top = 14.dp))
                         Row(Modifier.padding(horizontal = 20.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {

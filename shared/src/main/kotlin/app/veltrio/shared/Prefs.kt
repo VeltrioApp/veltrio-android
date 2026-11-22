@@ -37,6 +37,9 @@ data class AppPrefs(
                 "" to tr("Automatique"),
                 "fr" to "Français",
                 "en" to "English",
+                "es" to "Español",
+                "de" to "Deutsch",
+                "it" to "Italiano",
             )
 
         internal fun load() {

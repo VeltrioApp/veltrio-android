@@ -485,5 +485,6 @@ internal object English {
         "Masquer ce bouquet" to "Hide group",
         "Bouquets masqués (%s)" to "Hidden groups (%s)",
         "Tout réafficher" to "Show all",
+        "Rechercher OpenSubtitles" to "Search OpenSubtitles",
     )
 }

@@ -35,6 +35,20 @@ object SubtitleFetcher {
         }.awaitAll().flatten().sortedBy { it.language }
     }
 
+    /** Direct manual search against OpenSubtitles v3 (works even if no subtitle
+     *  addon is installed). */
+    suspend fun searchOpenSubtitles(type: String, id: String): List<AddonSubtitle> {
+        if (!id.startsWith("tt")) return emptyList()
+        return withTimeoutOrNull(10_000) {
+            runCatching {
+                val url = "https://opensubtitles-v3.strem.io/subtitles/$type/${URLEncoder.encode(id, "UTF-8").replace("%3A", ":")}.json"
+                Http.json(Request.Builder().url(url).build(), "OpenSubtitles").array("subtitles").mapNotNull { s ->
+                    s.str("url")?.takeIf { it.isNotEmpty() }?.let { AddonSubtitle(it, s.str("lang"), "OpenSubtitles") }
+                }.sortedBy { it.language }
+            }.getOrNull()
+        }.orEmpty()
+    }
+
     /** The first subtitle in one of the preferred languages (any synonym,
      *  then prefix match). */
     fun pick(subtitles: List<AddonSubtitle>, preferred: List<String>): AddonSubtitle? {
