@@ -149,6 +149,17 @@ fun PlayerScreen(request: PlayRequest) {
     // The URL being played, for Chromecast (which fetches it itself).
     var resolvedUrl by remember { mutableStateOf<String?>(null) }
     val cast by ChromecastService.state.collectAsState()
+    var introWindow by remember(request.contentId, request.season, request.episode) {
+        mutableStateOf<app.veltrio.shared.IntroService.Window?>(null)
+    }
+    LaunchedEffect(request.contentId, request.season, request.episode) {
+        val cid = request.contentId
+        val s = request.season
+        val ep = request.episode
+        if (cid != null && cid.startsWith("tt") && s != null && ep != null) {
+            introWindow = app.veltrio.shared.IntroService.fetchIntro(cid, s, ep)
+        }
+    }
     DisposableEffect(Unit) {
         ChromecastService.startDiscovery(context)
         onDispose { ChromecastService.stopDiscovery() }
@@ -472,8 +483,10 @@ fun PlayerScreen(request: PlayRequest) {
             }
         }
 
-        // In an intro chapter: "Passer l'intro", as macOS.
-        state.introEnd?.let { end ->
+        // In an intro chapter or IntroDB window: "Passer l'intro".
+        val skipIntroEnd = state.introEnd
+            ?: introWindow?.let { w -> if (state.position >= w.startSec && state.position < w.endSec) w.endSec else null }
+        skipIntroEnd?.let { end ->
             if (!endOverlay && panel == null && cast.state == ChromecastService.CastState.Idle) {
                 Box(Modifier.align(Alignment.BottomEnd).padding(end = 28.dp, bottom = 110.dp)) {
                     Pill(tr("Passer l'intro"), Icons.Filled.SkipNext, primary = true) { player.seek(end) }

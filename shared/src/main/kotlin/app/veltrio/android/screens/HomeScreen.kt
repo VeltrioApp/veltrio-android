@@ -44,6 +44,7 @@ import app.veltrio.android.DetailRequest
 import app.veltrio.android.Nav
 import app.veltrio.android.ui.hero
 import app.veltrio.android.CatalogRequest
+import app.veltrio.android.ui.Chip
 import app.veltrio.android.ui.Eyebrow
 import app.veltrio.android.ui.GhostButton
 import app.veltrio.android.ui.PosterCard
@@ -124,6 +125,11 @@ fun HomeScreen() {
                 }
             }
             LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(bottom = Spacing.xl)) {
+                if (tmdb.connected) {
+                    item(key = "discover") {
+                        DiscoverSection(onFocused = { focusedItem = it })
+                    }
+                }
                 if (continueWatching.isNotEmpty()) {
                     item {
                         SectionHeader(1, tr("Reprendre"), tr("%s en cours", continueWatching.size), Modifier.padding(start = Spacing.lg, end = Spacing.lg, top = Spacing.md, bottom = 12.dp))
@@ -179,6 +185,11 @@ fun HomeScreen() {
             if (hero != null) Hero(hero)
             else Box(Modifier.hero(0.78f))
         }
+        if (tmdb.connected) {
+            item(key = "discover") {
+                DiscoverSection()
+            }
+        }
         if (continueWatching.isNotEmpty()) {
             item {
                 SectionHeader(1, tr("Reprendre"), tr("%s en cours", continueWatching.size), Modifier.padding(start = Spacing.lg, end = Spacing.lg, top = Spacing.lg, bottom = 12.dp))
@@ -212,6 +223,66 @@ fun HomeScreen() {
                         items.isEmpty() -> Text(row.error ?: tr("Rien dans ce catalogue."), style = Type.caption(12), color = p.textTertiary, modifier = Modifier.padding(horizontal = Spacing.lg))
                         else -> LazyRow(contentPadding = PaddingValues(horizontal = Spacing.lg), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             items(items, key = { it.id }) { PosterCard(it.title, it.posterUrl, it.subtitle) { openPoster(it) } }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DiscoverSection(onFocused: ((PosterItem) -> Unit)? = null) {
+    val p = VeltrioTheme.palette
+    val tmdb by TmdbService.state.collectAsState()
+    var mediaType by remember { mutableStateOf("movie") }
+    var selectedProvider by remember { mutableStateOf<Int?>(null) }
+    var selectedGenre by remember { mutableStateOf<TmdbService.DiscoverGenre?>(null) }
+    var results by remember { mutableStateOf<List<PosterItem>?>(null) }
+    val active = selectedProvider != null || selectedGenre != null
+
+    LaunchedEffect(mediaType, selectedProvider, selectedGenre, tmdb.language) {
+        if (!active) {
+            results = null
+            return@LaunchedEffect
+        }
+        results = null
+        val gid = selectedGenre?.let { if (mediaType == "series") it.tvId else it.movieId }
+        results = runCatching { TmdbService.discover(mediaType, gid, selectedProvider) }.getOrDefault(emptyList())
+    }
+
+    Column(Modifier.padding(top = Spacing.md), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        LazyRow(contentPadding = PaddingValues(horizontal = Spacing.lg), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            item {
+                Chip(tr("Films"), mediaType == "movie") { mediaType = "movie" }
+            }
+            item {
+                Chip(tr("Séries"), mediaType == "series") { mediaType = "series" }
+            }
+            items(TmdbService.discoverProviders, key = { "prov-${it.first}" }) { (id, name) ->
+                Chip(name, selectedProvider == id) { selectedProvider = if (selectedProvider == id) null else id }
+            }
+            items(TmdbService.discoverGenres, key = { "gen-${it.movieId}" }) { g ->
+                Chip(g.label, selectedGenre == g) { selectedGenre = if (selectedGenre == g) null else g }
+            }
+            if (active) {
+                item {
+                    Chip(tr("Effacer les filtres"), false) {
+                        selectedProvider = null
+                        selectedGenre = null
+                    }
+                }
+            }
+        }
+        if (active) {
+            val items = results
+            when {
+                items == null -> Text(tr("Chargement…"), style = Type.caption(12), color = p.textTertiary, modifier = Modifier.padding(horizontal = Spacing.lg))
+                items.isEmpty() -> Text(tr("Rien dans ce catalogue."), style = Type.caption(12), color = p.textTertiary, modifier = Modifier.padding(horizontal = Spacing.lg))
+                else -> LazyRow(contentPadding = PaddingValues(horizontal = Spacing.lg), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    items(items, key = { "disc-${it.id}" }) { item ->
+                        PosterCard(item.title, item.posterUrl, item.subtitle, onFocused = { onFocused?.invoke(item) }) {
+                            openPoster(item)
                         }
                     }
                 }

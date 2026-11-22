@@ -60,6 +60,8 @@ data class SettingsBundle(
     val watch: List<WatchEntry> = emptyList(),
     val playerPrefs: PlayerPrefs? = null,
     val appLanguage: String? = null,
+    val iptvFavorites: List<String> = emptyList(),
+    val iptvHiddenGroups: List<String> = emptyList(),
 )
 
 @Serializable
@@ -127,6 +129,8 @@ object Pairing {
             watch = WatchStore.entries.value.values.toList(),
             playerPrefs = PlayerPrefs.current,
             appLanguage = AppPrefs.current.appLanguage.takeIf { it.isNotEmpty() },
+            iptvFavorites = IptvStore.favorites.value.toList(),
+            iptvHiddenGroups = IptvStore.hiddenGroups.value.toList(),
         )
     }
 
@@ -158,6 +162,7 @@ object Pairing {
         val titles = WatchStore.mergeEntries(bundle.watch)
         bundle.playerPrefs?.let { prefs -> PlayerPrefs.update { prefs } }
         bundle.appLanguage?.let { lang -> AppPrefs.update { it.copy(appLanguage = lang) } }
+        IptvStore.mergeFavoritesAndHidden(bundle.iptvFavorites, bundle.iptvHiddenGroups)
         val accounts = secrets.keys.map { it.substringBefore('.') }.distinct().size
         fun count(n: Int, one: String, many: String) = if (n == 0) null else "$n ${if (n > 1) many else one}"
         return listOfNotNull(

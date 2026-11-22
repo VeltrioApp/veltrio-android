@@ -15,6 +15,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.SetSerializer
 import kotlinx.serialization.builtins.serializer
 import uniffi.veltrio.IptvClient
 import java.io.File
@@ -27,6 +28,8 @@ import java.util.concurrent.ConcurrentHashMap
 object IptvStore {
     private const val FILE = "iptv-playlists.json"
     private const val SELECTED_FILE = "iptv-selected.json"
+    private const val FAVORITES_FILE = "iptv-favorites.json"
+    private const val HIDDEN_GROUPS_FILE = "iptv-hidden-groups.json"
 
     private val client by lazy { IptvClient() }
     private val cache = ConcurrentHashMap<Pair<String, ChannelKind>, Deferred<List<ChannelItem>>>()
@@ -35,12 +38,45 @@ object IptvStore {
     val playlists: StateFlow<List<PlaylistRef>> = _playlists
     private val _selectedId = MutableStateFlow<String?>(null)
     val selectedId: StateFlow<String?> = _selectedId
+    private val _favorites = MutableStateFlow<Set<String>>(emptySet())
+    val favorites: StateFlow<Set<String>> = _favorites
+    private val _hiddenGroups = MutableStateFlow<Set<String>>(emptySet())
+    val hiddenGroups: StateFlow<Set<String>> = _hiddenGroups
 
     internal fun init() {
         _playlists.value = Storage.load(FILE, ListSerializer(PlaylistRef.serializer()), emptyList()).map { p ->
             p.xtream?.let { p.copy(xtream = it.copy(password = SecretStore.get(secretName(p.id)) ?: "")) } ?: p
         }
         _selectedId.value = Storage.load(SELECTED_FILE, String.serializer(), "").ifEmpty { null }
+        _favorites.value = Storage.load(FAVORITES_FILE, SetSerializer(String.serializer()), emptySet())
+        _hiddenGroups.value = Storage.load(HIDDEN_GROUPS_FILE, SetSerializer(String.serializer()), emptySet())
+    }
+
+    fun isFavorite(channelId: String): Boolean = channelId in _favorites.value
+
+    fun toggleFavorite(channelId: String) {
+        val next = if (channelId in _favorites.value) _favorites.value - channelId else _favorites.value + channelId
+        _favorites.value = next
+        Storage.save(FAVORITES_FILE, SetSerializer(String.serializer()), next)
+    }
+
+    fun isGroupHidden(group: String): Boolean = group in _hiddenGroups.value
+
+    fun toggleHiddenGroup(group: String) {
+        val next = if (group in _hiddenGroups.value) _hiddenGroups.value - group else _hiddenGroups.value + group
+        _hiddenGroups.value = next
+        Storage.save(HIDDEN_GROUPS_FILE, SetSerializer(String.serializer()), next)
+    }
+
+    fun mergeFavoritesAndHidden(favs: Collection<String>, hidden: Collection<String>) {
+        if (favs.isNotEmpty()) {
+            _favorites.value = _favorites.value + favs
+            Storage.save(FAVORITES_FILE, SetSerializer(String.serializer()), _favorites.value)
+        }
+        if (hidden.isNotEmpty()) {
+            _hiddenGroups.value = _hiddenGroups.value + hidden
+            Storage.save(HIDDEN_GROUPS_FILE, SetSerializer(String.serializer()), _hiddenGroups.value)
+        }
     }
 
     private fun secretName(id: String) = "xtream.$id"

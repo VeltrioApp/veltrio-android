@@ -38,6 +38,8 @@ import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -157,10 +159,22 @@ private fun PlaylistView(playlist: PlaylistRef, playlists: List<PlaylistRef>, on
 
     val tv = LocalTv.current
     val context = LocalContext.current
+    val favorites by IptvStore.favorites.collectAsState()
+    val hiddenGroups by IptvStore.hiddenGroups.collectAsState()
+    var favoritesOnly by rememberSaveable(playlist.id, kind) { mutableStateOf(false) }
     val all = items.orEmpty()
-    val groups = remember(all) { all.groupBy { it.group }.map { it.key to it.value.size } }
+    val groups = remember(all, hiddenGroups) {
+        all.groupBy { it.group }
+            .filterKeys { it !in hiddenGroups }
+            .map { it.key to it.value.size }
+    }
+    val favCount = remember(all, favorites) { all.count { it.id in favorites } }
     val text = filter.trim()
-    val visible = all.filter { (group == null || it.group == group) && (text.isEmpty() || XtreamClient.titleMatches(it.name, text)) }
+    val visible = all.filter {
+        val groupOk = if (favoritesOnly) (it.id in favorites)
+        else (it.group !in hiddenGroups && (group == null || it.group == group))
+        groupOk && (text.isEmpty() || XtreamClient.titleMatches(it.name, text))
+    }
     val current = selected?.takeIf { s -> visible.any { it.id == s.id } } ?: visible.firstOrNull()
 
     // On TV live list: split-screen with embedded live mini-player on the left
@@ -235,10 +249,11 @@ private fun PlaylistView(playlist: PlaylistRef, playlists: List<PlaylistRef>, on
                                 }
                                 Spacer(Modifier.width(6.dp))
                             }
-                            Chip(tr("Liste"), !guide) { guide = false }
-                            Chip(tr("Guide TV"), guide) { guide = true }
+                            Chip(tr("Liste"), !guide && !favoritesOnly) { guide = false; favoritesOnly = false }
+                            Chip(tr("★ Favoris (%s)", favCount), favoritesOnly) { favoritesOnly = !favoritesOnly; if (favoritesOnly) guide = false }
+                            Chip(tr("Guide TV"), guide) { guide = true; favoritesOnly = false }
                         }
-                        Picker(tr("Bouquet"), listOf(null to "${tr("Tous les bouquets")}  (${all.size})") + groups.map { (g, n) -> g to "$g  ($n)" }, group) { group = it }
+                        Picker(tr("Bouquet"), listOf(null to "${tr("Tous les bouquets")}  (${all.size})") + groups.map { (g, n) -> g to "$g  ($n)" }, group) { group = it; favoritesOnly = false }
                         TextInput(filter, { filter = it }, tr("Rechercher une chaîne"))
                     }
                 }
@@ -290,12 +305,28 @@ private fun PlaylistView(playlist: PlaylistRef, playlists: List<PlaylistRef>, on
                     }
                     if (kind == ChannelKind.Live) {
                         if (playlist.isXtream) Spacer(Modifier.width(8.dp))
-                        Chip(tr("Liste"), !guide) { guide = false }
-                        Chip(tr("Guide TV"), guide) { guide = true }
+                        Chip(tr("Liste"), !guide && !favoritesOnly) { guide = false; favoritesOnly = false }
+                        Chip(tr("★ Favoris (%s)", favCount), favoritesOnly) { favoritesOnly = !favoritesOnly; if (favoritesOnly) guide = false }
+                        Chip(tr("Guide TV"), guide) { guide = true; favoritesOnly = false }
                     }
                 }
                 val allLabel = when (kind) { ChannelKind.Movie -> tr("Tous les films"); ChannelKind.Series -> tr("Toutes les séries"); else -> tr("Tous les bouquets") }
-                Picker(tr("Bouquet"), listOf(null to "$allLabel  (${all.size})") + groups.map { (g, n) -> g to "$g  ($n)" }, group) { group = it }
+                Picker(tr("Bouquet"), listOf(null to "$allLabel  (${all.size})") + groups.map { (g, n) -> g to "$g  ($n)" }, group) { group = it; favoritesOnly = false }
+                if (group != null || hiddenGroups.isNotEmpty()) {
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        group?.let { activeGroup ->
+                            Chip(tr("Masquer ce bouquet"), false) {
+                                IptvStore.toggleHiddenGroup(activeGroup)
+                                group = null
+                            }
+                        }
+                        if (hiddenGroups.isNotEmpty()) {
+                            Chip(tr("Bouquets masqués (%s)", hiddenGroups.size) + " · " + tr("Tout réafficher"), false) {
+                                hiddenGroups.toList().forEach { IptvStore.toggleHiddenGroup(it) }
+                            }
+                        }
+                    }
+                }
                 TextInput(filter, { filter = it }, when (kind) { ChannelKind.Movie -> tr("Rechercher un film"); ChannelKind.Series -> tr("Rechercher une série"); else -> tr("Rechercher une chaîne") })
             }
         }
@@ -481,6 +512,18 @@ private fun ChannelRow(c: ChannelItem, selected: Boolean, now: Instant, onClick:
             } else Text(c.group, style = Type.caption(11), color = p.textQuaternary, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         if (c.hasCatchup) Icon(Icons.Filled.History, tr("Replay"), Modifier.size(14.dp), tint = p.textQuaternary)
+        val fav = IptvStore.favorites.collectAsState().value.contains(c.id)
+        Box(
+            Modifier.size(32.dp).clickable { IptvStore.toggleFavorite(c.id) },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                if (fav) Icons.Filled.Star else Icons.Outlined.StarBorder,
+                tr("★ Favoris"),
+                Modifier.size(16.dp),
+                tint = if (fav) p.accent else p.textQuaternary,
+            )
+        }
     }
 }
 

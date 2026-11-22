@@ -179,6 +179,54 @@ object TmdbService {
         return json.array("results").mapNotNull { parsePoster(it, if (isSeries) "series" else "movie", genres, addon) }
     }
 
+    /** Popular streaming providers and quick genres for the Discover bar. */
+    val discoverProviders: List<Pair<Int, String>> = listOf(
+        8 to "Netflix",
+        350 to "Apple TV+",
+        337 to "Disney+",
+        119 to "Prime Video",
+        1899 to "Max",
+        381 to "Canal+",
+    )
+
+    data class DiscoverGenre(val movieId: Int, val tvId: Int, private val labelKey: String) {
+        val label: String get() = tr(labelKey)
+    }
+
+    val discoverGenres: List<DiscoverGenre> = listOf(
+        DiscoverGenre(28, 10759, "Action"),
+        DiscoverGenre(878, 10765, "Sci-Fi"),
+        DiscoverGenre(35, 35, "Comédie"),
+        DiscoverGenre(18, 18, "Drame"),
+        DiscoverGenre(53, 9648, "Thriller"),
+        DiscoverGenre(16, 16, "Animation"),
+        DiscoverGenre(27, 9648, "Horreur"),
+        DiscoverGenre(99, 99, "Documentaire"),
+    )
+
+    suspend fun discover(type: String, genreId: Int? = null, providerId: Int? = null, page: Int = 1): List<PosterItem> {
+        val key = SecretStore.get(KEY_SECRET)?.takeIf { it.isNotBlank() } ?: return emptyList()
+        val lang = language
+        val region = lang.substringAfter('-', "FR").uppercase()
+        val isSeries = type.equals("series", ignoreCase = true)
+        val endpoint = if (isSeries) "tv" else "movie"
+        val params = buildList {
+            add("language=$lang")
+            add("sort_by=popularity.desc")
+            add("include_adult=false")
+            add("page=$page")
+            if (genreId != null) add("with_genres=$genreId")
+            if (providerId != null) {
+                add("with_watch_providers=$providerId")
+                add("watch_region=$region")
+            }
+        }.joinToString("&")
+        val genres = genreMap(isSeries, lang, key)
+        val json = Http.json(buildRequest("/discover/$endpoint?$params", key), "TMDB")
+        val addon = virtualAddon()
+        return json.array("results").mapNotNull { parsePoster(it, if (isSeries) "series" else "movie", genres, addon) }
+    }
+
     // -------------------- full details --------------------
 
     suspend fun fetchDetails(type: String, id: String): TitleDetails {

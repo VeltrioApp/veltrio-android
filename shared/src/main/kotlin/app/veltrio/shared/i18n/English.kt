@@ -473,5 +473,17 @@ internal object English {
         "Blanc" to "White",
         "Jaune" to "Yellow",
         "Gris clair" to "Light gray",
+        // Discover filters & IPTV favorites / hidden groups
+        "Explorer" to "Discover",
+        "Comédie" to "Comedy",
+        "Drame" to "Drama",
+        "Horreur" to "Horror",
+        "Documentaire" to "Documentary",
+        "Effacer les filtres" to "Clear filters",
+        "★ Favoris" to "★ Favorites",
+        "★ Favoris (%s)" to "★ Favorites (%s)",
+        "Masquer ce bouquet" to "Hide group",
+        "Bouquets masqués (%s)" to "Hidden groups (%s)",
+        "Tout réafficher" to "Show all",
     )
 }
