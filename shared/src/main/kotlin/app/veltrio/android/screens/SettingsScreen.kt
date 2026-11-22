@@ -254,6 +254,8 @@ private fun PlaybackSection() {
     Body(tr("Le lecteur s'appuie sur mpv, comme sur macOS : MKV, HEVC, HDR, pistes audio et sous-titres intégrés, décodage matériel quand l'appareil le permet. Ces choix valent pour la prochaine vidéo ouverte."))
     Picker(tr("Langue audio préférée"), PlayerPrefs.languages, prefs.audioLang) { v -> set { it.copy(audioLang = v) } }
     Picker(tr("Sous-titres préférés"), PlayerPrefs.languages, prefs.subtitleLang) { v -> set { it.copy(subtitleLang = v) } }
+    Picker(tr("Taille des sous-titres"), PlayerPrefs.subtitleScales, prefs.subtitleScale) { v -> set { it.copy(subtitleScale = v) } }
+    Picker(tr("Couleur des sous-titres"), PlayerPrefs.subtitleColors, prefs.subtitleColor) { v -> set { it.copy(subtitleColor = v) } }
     Picker(tr("Décodage vidéo"), PlayerPrefs.decoders, prefs.hwdec) { v -> set { it.copy(hwdec = v) } }
     Picker(tr("Mémoire tampon (flux réseau)"), PlayerPrefs.cacheSizes.map { it to tr("%s Mo", it) }, prefs.cacheMiB) { v -> set { it.copy(cacheMiB = v) } }
     Picker(tr("Profil de lecture"), app.veltrio.shared.PlaybackProfile.entries.map { it to it.label }, prefs.profile) { v -> set { it.copy(profile = v) } }

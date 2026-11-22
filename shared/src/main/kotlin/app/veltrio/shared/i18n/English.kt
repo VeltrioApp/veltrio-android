@@ -462,5 +462,16 @@ internal object English {
         "Afficher l'assistant de bienvenue" to "Show welcome assistant",
         "Mettre à jour (%s)" to "Update (%s)",
         "Une mise à jour est disponible (Veltrio %s)." to "An update is available (Veltrio %s).",
+        "Bande-annonce" to "Trailer",
+        "Titres similaires" to "More like this",
+        "Taille des sous-titres" to "Subtitle size",
+        "Couleur des sous-titres" to "Subtitle color",
+        "Petit" to "Small",
+        "Normal" to "Normal",
+        "Grand" to "Large",
+        "Très grand" to "Extra large",
+        "Blanc" to "White",
+        "Jaune" to "Yellow",
+        "Gris clair" to "Light gray",
     )
 }

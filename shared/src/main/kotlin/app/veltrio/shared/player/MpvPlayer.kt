@@ -93,6 +93,8 @@ class MpvPlayer(context: Context) : SurfaceHolder.Callback, MPVLib.EventObserver
             setOptionString("osd-fonts-dir", "/system/fonts")
             setOptionString("sub-font", "Roboto")
             setOptionString("sub-font-size", "46")
+            setOptionString("sub-scale", prefs.subtitleScale.toString())
+            setOptionString("sub-color", prefs.subtitleColor)
             setOptionString("sub-border-size", "2.5")
             // The chosen language under all its codes; else the file's default.
             languages(prefs.subtitleLang)?.let { setOptionString("slang", it) }

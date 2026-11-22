@@ -191,7 +191,7 @@ object TmdbService {
 
         val mediaType = if (isSeries) "tv" else "movie"
         val langShort = lang.substringBefore('-')
-        val path = "/$mediaType/$tmdbId?language=$lang&append_to_response=external_ids,credits,images&include_image_language=$langShort,en,null"
+        val path = "/$mediaType/$tmdbId?language=$lang&append_to_response=external_ids,credits,images,videos,recommendations&include_image_language=$langShort,en,null"
         val json = Http.json(buildRequest(path, key), "TMDB")
 
         val imdbId = json["external_ids"]?.str("imdb_id")?.takeIf { it.startsWith("tt") }
@@ -229,6 +229,14 @@ object TmdbService {
             emptyList()
         }
 
+        val trailerUrl = pickTrailer(json["videos"], langShort)
+        val addon = virtualAddon()
+        val genresMap = genreMap(isSeries, lang, key)
+        val recs = json["recommendations"]?.array("results")
+            ?.take(12)
+            ?.mapNotNull { parsePoster(it, if (isSeries) "series" else "movie", genresMap, addon) }
+            .orEmpty()
+
         return TitleDetails(
             id = canonicalId,
             type = if (isSeries) "series" else "movie",
@@ -245,8 +253,21 @@ object TmdbService {
             director = directors,
             writer = writers,
             episodes = episodes,
-            addon = virtualAddon(),
+            addon = addon,
+            trailerUrl = trailerUrl,
+            recommendations = recs,
         )
+    }
+
+    private fun pickTrailer(videos: JsonElement?, langShort: String): String? {
+        val list = videos?.array("results").orEmpty()
+            .filter { it.str("site").equals("YouTube", ignoreCase = true) && !it.str("key").isNullOrBlank() }
+        if (list.isEmpty()) return null
+        val chosen = list.firstOrNull { it.str("type") == "Trailer" && it.str("iso_639_1") == langShort }
+            ?: list.firstOrNull { it.str("type") == "Trailer" }
+            ?: list.firstOrNull { it.str("type") == "Teaser" }
+            ?: list.first()
+        return chosen.str("key")?.let { "https://www.youtube.com/watch?v=$it" }
     }
 
     private suspend fun fetchEpisodes(

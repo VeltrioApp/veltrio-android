@@ -111,6 +111,8 @@ data class TitleDetails(
     val writer: List<String>,
     val episodes: List<EpisodeItem>,
     val addon: AddonInfo,
+    val trailerUrl: String? = null,
+    val recommendations: List<PosterItem> = emptyList(),
 ) {
     val isSeries get() = episodes.isNotEmpty()
 

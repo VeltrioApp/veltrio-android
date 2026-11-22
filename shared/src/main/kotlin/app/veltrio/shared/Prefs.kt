@@ -69,6 +69,10 @@ data class PlayerPrefs(
     val profile: PlaybackProfile = PlaybackProfile.Balanced,
     /** mpv's tone-mapping for HDR on an SDR screen. */
     val toneMapping: String = "auto",
+    /** Subtitle size multiplier (mpv sub-scale). */
+    val subtitleScale: Float = 1.0f,
+    /** Subtitle text color (mpv sub-color, #AARRGGBB or #RRGGBB). */
+    val subtitleColor: String = "#FFFFFFFF",
 ) {
     companion object {
         private const val FILE = "player-prefs.json"
@@ -96,6 +100,17 @@ data class PlayerPrefs(
         val toneMappings get() = listOf(
             "auto" to tr("Automatique"), "bt.2446a" to tr("BT.2446a (équilibré)"), "bt.2390" to tr("BT.2390 (cinéma)"),
             "hable" to tr("Hable"), "reinhard" to tr("Reinhard"), "clip" to tr("Aucun (écrêter)"),
+        )
+        val subtitleScales get() = listOf(
+            0.75f to tr("Petit"),
+            1.0f to tr("Normal"),
+            1.25f to tr("Grand"),
+            1.5f to tr("Très grand"),
+        )
+        val subtitleColors get() = listOf(
+            "#FFFFFFFF" to tr("Blanc"),
+            "#FFFFE066" to tr("Jaune"),
+            "#FFD0D0D0" to tr("Gris clair"),
         )
 
         /** The codes a language goes by: ISO 639-1, -2/B and -2/T. */

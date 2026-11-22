@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -60,6 +61,7 @@ import app.veltrio.android.ui.Chip
 import app.veltrio.android.ui.Eyebrow
 import app.veltrio.android.ui.GhostButton
 import app.veltrio.android.ui.LoadingRow
+import app.veltrio.android.ui.PosterCard
 import app.veltrio.android.ui.PrimaryButton
 import app.veltrio.shared.Core
 import app.veltrio.shared.DebridService
@@ -278,6 +280,11 @@ fun DetailScreen(request: DetailRequest) {
                             WatchStore.toggleLibrary(request.type, request.id, d?.name ?: request.name, d?.poster ?: request.poster, d?.background ?: request.background, d?.addon ?: request.addon)
                         }
                     }
+                    d?.trailerUrl?.let { url ->
+                        GhostButton(tr("Bande-annonce"), icon = Icons.Filled.PlayArrow) {
+                            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                        }
+                    }
                     if (d != null && (d.cast.isNotEmpty() || d.director.isNotEmpty())) {
                         Column(Modifier.padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Box(Modifier.fillMaxWidth().height(1.dp).background(p.hairline))
@@ -359,6 +366,18 @@ fun DetailScreen(request: DetailRequest) {
                             }
                         }
                     }
+                    if (d != null && d.recommendations.isNotEmpty()) {
+                        item {
+                            Column(Modifier.padding(top = Spacing.lg), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Eyebrow(tr("Titres similaires"), p.textTertiary, Modifier.padding(horizontal = Spacing.lg))
+                                LazyRow(contentPadding = PaddingValues(horizontal = Spacing.lg), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    items(d.recommendations, key = { it.id }) { item ->
+                                        PosterCard(item.title, item.posterUrl, item.subtitle) { openPoster(item) }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -429,6 +448,11 @@ fun DetailScreen(request: DetailRequest) {
                         color = if (saved) p.accentText else p.textPrimary,
                     ) {
                         WatchStore.toggleLibrary(request.type, request.id, d?.name ?: request.name, d?.poster ?: request.poster, d?.background ?: request.background, d?.addon ?: request.addon)
+                    }
+                }
+                d?.trailerUrl?.let { url ->
+                    GhostButton(tr("Bande-annonce"), icon = Icons.Filled.PlayArrow) {
+                        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
                     }
                 }
                 if (d != null && (d.cast.isNotEmpty() || d.director.isNotEmpty())) {
@@ -515,6 +539,18 @@ fun DetailScreen(request: DetailRequest) {
                             DownloadManager.start(videoId, playRequest(stream, episode).copy(next = null, nextLabel = null))
                         }) else null,
                     ) { play(stream) }
+                }
+            }
+        }
+        if (d != null && d.recommendations.isNotEmpty()) {
+            item {
+                Column(Modifier.padding(top = Spacing.lg), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Eyebrow(tr("Titres similaires"), p.textTertiary, Modifier.padding(horizontal = Spacing.lg))
+                    LazyRow(contentPadding = PaddingValues(horizontal = Spacing.lg), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        items(d.recommendations, key = { it.id }) { item ->
+                            PosterCard(item.title, item.posterUrl, item.subtitle) { openPoster(item) }
+                        }
+                    }
                 }
             }
         }
