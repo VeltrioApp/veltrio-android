@@ -27,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -45,10 +46,12 @@ fun PosterCard(
     title: String, posterUrl: String?, subtitle: String?, width: Dp = 128.dp, progress: Float? = null,
     /** A channel logo: shown whole on a square, not cropped to a poster. */
     logo: Boolean = false,
+    onFocused: (() -> Unit)? = null,
     onLongClick: (() -> Unit)? = null, onClick: () -> Unit,
 ) {
     val p = VeltrioTheme.palette
-    Column(Modifier.width(width).combinedClickable(onClick = onClick, onLongClick = onLongClick), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    val focusMod = if (onFocused != null) Modifier.onFocusChanged { if (it.isFocused) onFocused() } else Modifier
+    Column(Modifier.width(width).then(focusMod).combinedClickable(onClick = onClick, onLongClick = onLongClick), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Box(Modifier.fillMaxWidth().aspectRatio(if (logo) 1f else 2f / 3f).background(p.surface).border(1.dp, p.border)) {
             Text(
                 title.take(1).uppercase(), style = Type.displaySerif(28), color = p.textQuaternary,

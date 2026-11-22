@@ -1,8 +1,14 @@
 package app.veltrio.shared.iptv
 
 import android.content.Context
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.SerializationStrategy
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.decodeFromStream
+import kotlinx.serialization.json.encodeToStream
 import kotlinx.serialization.Serializable
+import java.io.BufferedInputStream
+import java.io.BufferedOutputStream
 import java.io.File
 import java.time.Instant
 
@@ -64,45 +70,51 @@ object IptvCache {
         null
     }
 
+    @OptIn(ExperimentalSerializationApi::class)
     fun save(playlist: PlaylistRef, kind: ChannelKind, items: List<ChannelItem>) {
         val secret = secret(playlist)
         val masked = items.map { c -> secret?.let { c.copy(streamUrl = c.streamUrl.replace(it.first, it.second)) } ?: c }
-        write(file(playlist.id, kind.name), json.encodeToString(Stored.serializer(), Stored(System.currentTimeMillis(), masked)))
+        writeStream(file(playlist.id, kind.name), Stored.serializer(), Stored(System.currentTimeMillis(), masked))
     }
 
     /** The guide and its name matches, when one younger than [GUIDE_MAX_AGE] is kept. */
+    @OptIn(ExperimentalSerializationApi::class)
     fun loadGuide(playlistId: String): Triple<Map<String, List<EpgProgramme>>, Map<String, String>, Long>? = try {
         val f = file(playlistId, "guide")
         if (!f.exists()) null else {
-            val g = json.decodeFromString(Guide.serializer(), f.readText())
+            val g = BufferedInputStream(f.inputStream()).use { json.decodeFromStream(Guide.serializer(), it) }
             if (System.currentTimeMillis() - g.savedAt >= GUIDE_MAX_AGE) null
             else Triple(g.programmes.mapValues { (_, list) ->
                 list.map { EpgProgramme(it.channelId, Instant.ofEpochSecond(it.start), Instant.ofEpochSecond(it.end), it.title, it.description, it.category, it.image) }
             }, g.matches, g.savedAt)
         }
-    } catch (_: Exception) {
+    } catch (_: Throwable) {
         null
     }
 
+    @OptIn(ExperimentalSerializationApi::class)
     fun saveGuide(playlistId: String, programmes: Map<String, List<EpgProgramme>>, matches: Map<String, String>) {
         val guide = Guide(System.currentTimeMillis(), programmes.mapValues { (_, list) ->
             list.map { Programme(it.channelId, it.start.epochSecond, it.end.epochSecond, it.title, it.description, it.category, it.image) }
         }, matches)
-        write(file(playlistId, "guide"), json.encodeToString(Guide.serializer(), guide))
+        writeStream(file(playlistId, "guide"), Guide.serializer(), guide)
     }
 
     fun remove(playlistId: String) {
         dir.listFiles()?.filter { it.name.startsWith("$playlistId-") }?.forEach { it.delete() }
     }
 
-    private fun write(target: File, text: String) {
+    @OptIn(ExperimentalSerializationApi::class)
+    private fun <T> writeStream(target: File, serializer: SerializationStrategy<T>, value: T) {
         try {
             dir.mkdirs()
             val tmp = File(dir, "${target.name}.tmp")
-            tmp.writeText(text)
+            BufferedOutputStream(tmp.outputStream(), 1 shl 16).use { out ->
+                json.encodeToStream(serializer, value, out)
+            }
             tmp.renameTo(target)
-        } catch (_: Exception) {
-            // A lost cache only means asking the provider next time.
+        } catch (_: Throwable) {
+            // A lost cache (or OOM on a huge XMLTV feed) only means asking the provider next time.
         }
     }
 }

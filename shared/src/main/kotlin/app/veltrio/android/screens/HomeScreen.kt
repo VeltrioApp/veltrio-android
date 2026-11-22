@@ -1,6 +1,7 @@
 package app.veltrio.android.screens
 
 import app.veltrio.shared.i18n.tr
+import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -101,9 +102,71 @@ fun HomeScreen() {
             }
         }
     }
-    // The first row with artwork gives the hero, as on macOS.
-    val hero = rows.firstNotNullOfOrNull { r -> r.items?.firstOrNull { it.backgroundUrl != null } }
+    // The first row with artwork gives the default hero, as on macOS.
+    val defaultHero = rows.firstNotNullOfOrNull { r -> r.items?.firstOrNull { it.backgroundUrl != null } }
+    val tv = app.veltrio.android.LocalTv.current
+    var focusedItem by remember { mutableStateOf<PosterItem?>(null) }
+    val hero = if (tv) (focusedItem ?: defaultHero) else defaultHero
     val offset = if (continueWatching.isEmpty()) 1 else 2
+
+    if (tv) {
+        // On TV: keep a dynamic hero pinned at the top that updates live as the
+        // remote moves across movies and series in the catalog rows below.
+        Column(Modifier.fillMaxSize()) {
+            Box(Modifier.fillMaxWidth().height(260.dp)) {
+                Crossfade(targetState = hero, label = "tvHero") { item ->
+                    if (item != null) TvDynamicHero(item)
+                    else Box(Modifier.fillMaxSize().background(p.background))
+                }
+            }
+            LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(bottom = Spacing.xl)) {
+                if (continueWatching.isNotEmpty()) {
+                    item {
+                        SectionHeader(1, tr("Reprendre"), tr("%s en cours", continueWatching.size), Modifier.padding(start = Spacing.lg, end = Spacing.lg, top = Spacing.md, bottom = 12.dp))
+                        LazyRow(contentPadding = PaddingValues(horizontal = Spacing.lg), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            items(continueWatching, key = { it.key }) { ContinueCard(it) }
+                        }
+                    }
+                }
+                rows.forEachIndexed { index, row ->
+                    item(key = "${row.addon.id}|${row.catalog.type}|${row.catalog.id}") {
+                        Column(Modifier.padding(top = Spacing.lg)) {
+                            SectionHeader(
+                                offset + index, row.catalog.name,
+                                "${row.addon.name} · ${Core.typeLabel(row.catalog.type)}",
+                                Modifier.padding(horizontal = Spacing.lg),
+                            ) {
+                                if ((row.items?.size ?: 0) >= 10) {
+                                    Row(
+                                        Modifier.clickable { Nav.openCatalog(CatalogRequest(row.addon, row.catalog)) }.padding(6.dp),
+                                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    ) {
+                                        Text(tr("TOUT VOIR"), style = Type.eyebrow(9, 0.18f), color = p.textPrimary)
+                                        Icon(Icons.AutoMirrored.Filled.ArrowForward, null, Modifier.width(12.dp), tint = p.textPrimary)
+                                    }
+                                }
+                            }
+                            Spacer(Modifier.height(10.dp))
+                            val items = row.items
+                            when {
+                                items == null -> Text(tr("Chargement…"), style = Type.caption(12), color = p.textTertiary, modifier = Modifier.padding(horizontal = Spacing.lg))
+                                items.isEmpty() -> Text(row.error ?: tr("Rien dans ce catalogue."), style = Type.caption(12), color = p.textTertiary, modifier = Modifier.padding(horizontal = Spacing.lg))
+                                else -> LazyRow(contentPadding = PaddingValues(horizontal = Spacing.lg), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    items(items, key = { it.id }) { item ->
+                                        PosterCard(
+                                            item.title, item.posterUrl, item.subtitle,
+                                            onFocused = { focusedItem = item },
+                                        ) { openPoster(item) }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return
+    }
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = Spacing.xl)) {
         // Its place is kept from the start, so the list doesn't jump when
@@ -148,6 +211,40 @@ fun HomeScreen() {
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TvDynamicHero(item: PosterItem) {
+    val p = VeltrioTheme.palette
+    Box(Modifier.fillMaxSize()) {
+        AsyncImage(item.backgroundUrl ?: item.posterUrl, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        Box(
+            Modifier.fillMaxSize().background(
+                Brush.horizontalGradient(0f to p.background.copy(alpha = 0.94f), 0.55f to p.background.copy(alpha = 0.52f), 1f to Color.Transparent),
+            ),
+        )
+        Box(
+            Modifier.fillMaxSize().background(
+                Brush.verticalGradient(0f to Color.Transparent, 0.55f to p.background.copy(alpha = 0.25f), 1f to p.background),
+            ),
+        )
+        Column(
+            Modifier.align(Alignment.BottomStart).padding(horizontal = Spacing.lg, vertical = Spacing.md).fillMaxWidth(0.62f),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Box(Modifier.width(24.dp).height(1.dp).background(p.accent))
+                Eyebrow(item.addon.name)
+                Eyebrow("· " + Core.typeLabel(item.type), p.textTertiary)
+            }
+            Text(item.title, style = Type.displaySerif(34), color = p.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            val facts = listOfNotNull(item.rating?.let { "★ $it" }, item.year, item.genres.take(3).joinToString(" · ").ifEmpty { null })
+            if (facts.isNotEmpty()) Text(facts.joinToString("   "), style = Type.mono(11), color = p.accentText)
+            if (!item.description.isNullOrBlank()) {
+                Text(item.description!!, style = Type.body(13), color = p.textSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
         }
     }
