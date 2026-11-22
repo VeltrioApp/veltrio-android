@@ -169,7 +169,7 @@ fun DetailScreen(request: DetailRequest) {
             subtitle = if (ep == null) stream.name else "${ep.code} — ${ep.title}",
             url = stream.localPath,
             stream = stream,
-            contentType = request.type, contentId = request.id,
+            contentType = request.type, contentId = details?.id ?: request.id,
             videoId = ep?.id, season = ep?.season, episode = ep?.episode,
             poster = d?.poster ?: request.poster, background = d?.background ?: request.background,
             addon = d?.addon ?: request.addon,
