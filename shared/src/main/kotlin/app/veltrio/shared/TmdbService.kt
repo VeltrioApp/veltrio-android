@@ -318,7 +318,15 @@ object TmdbService {
         } else {
             (json["runtime"] as? JsonPrimitive)?.intOrNull
         }
-        val runtime = runtimeMin?.takeIf { it > 0 }?.let { "$it min" }
+        val runtime = runtimeMin?.takeIf { it > 0 }?.let { m ->
+            val h = m / 60
+            val rem = m % 60
+            when {
+                h > 0 && rem > 0 -> "$h h $rem min"
+                h > 0 -> "$h h"
+                else -> "$m min"
+            }
+        }
         val genres = json.array("genres").mapNotNull { it.str("name") }
         val cast = json["credits"]?.array("cast")?.take(12)?.mapNotNull { it.str("name") }.orEmpty()
         val crew = json["credits"]?.array("crew").orEmpty()

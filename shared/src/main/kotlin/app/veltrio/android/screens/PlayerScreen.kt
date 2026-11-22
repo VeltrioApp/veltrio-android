@@ -153,15 +153,18 @@ fun PlayerScreen(request: PlayRequest) {
     // The URL being played, for Chromecast (which fetches it itself).
     var resolvedUrl by remember { mutableStateOf<String?>(null) }
     val cast by ChromecastService.state.collectAsState()
-    var introWindow by remember(request.contentId, request.season, request.episode) {
-        mutableStateOf<app.veltrio.shared.IntroService.Window?>(null)
+    var introSegments by remember(request.contentId, request.season, request.episode) {
+        mutableStateOf<app.veltrio.shared.IntroService.Segments?>(null)
+    }
+    var dismissedSegments by remember(request.contentId, request.season, request.episode) {
+        mutableStateOf<Set<String>>(emptySet())
     }
     LaunchedEffect(request.contentId, request.season, request.episode) {
         val cid = request.contentId
         val s = request.season
         val ep = request.episode
         if (cid != null && cid.startsWith("tt") && s != null && ep != null) {
-            introWindow = app.veltrio.shared.IntroService.fetchIntro(cid, s, ep)
+            introSegments = app.veltrio.shared.IntroService.fetchSegments(cid, s, ep)
         }
     }
     DisposableEffect(Unit) {
@@ -539,13 +542,46 @@ fun PlayerScreen(request: PlayRequest) {
             }
         }
 
-        // In an intro chapter or IntroDB window: "Passer l'intro".
-        val skipIntroEnd = state.introEnd
-            ?: introWindow?.let { w -> if (state.position >= w.startSec && state.position < w.endSec) w.endSec else null }
-        skipIntroEnd?.let { end ->
-            if (!endOverlay && panel == null && cast.state == ChromecastService.CastState.Idle) {
+        // Recap / Intro (shown only 2s after playback starts) & Next-Episode auto-fill 5s bar.
+        val readyForSkip = state.loaded && !state.buffering && state.position >= 2.0 && !Nav.inPipMode
+        val activeSkip: Triple<String, String, Double>? = if (!readyForSkip) null else {
+            val recap = introSegments?.recap?.takeIf { state.position >= it.startSec && state.position < it.endSec - 1.0 }
+            val intro = introSegments?.intro?.takeIf { state.position >= it.startSec && state.position < it.endSec - 1.0 }
+            when {
+                recap != null && "recap" !in dismissedSegments -> Triple("recap", tr("Passer le récap"), recap.endSec)
+                state.introEnd != null && "intro" !in dismissedSegments -> Triple("intro", tr("Passer l'intro"), state.introEnd!!)
+                intro != null && "intro" !in dismissedSegments -> Triple("intro", tr("Passer l'intro"), intro.endSec)
+                else -> null
+            }
+        }
+        val inOutro = !Nav.inPipMode && state.loaded && !state.buffering && request.next != null && "outro" !in dismissedSegments && (
+            (introSegments?.outro?.let { state.position >= it.startSec && state.position < it.endSec } == true) ||
+            (state.duration > 180.0 && state.position > 0.0 && (state.duration - state.position) <= 45.0)
+        )
+        if (!endOverlay && panel == null && cast.state == ChromecastService.CastState.Idle) {
+            if (activeSkip != null) {
+                val (segKey, segLabel, segEnd) = activeSkip
                 Box(Modifier.align(Alignment.BottomEnd).padding(end = 28.dp, bottom = 110.dp)) {
-                    Pill(tr("Passer l'intro"), Icons.Filled.SkipNext, primary = true) { player.seek(end) }
+                    AutoFillSkipPill(
+                        key = "$segKey-${segEnd.toInt()}",
+                        label = segLabel,
+                        onTrigger = { player.seek(segEnd) },
+                        onDismiss = { dismissedSegments = dismissedSegments + segKey },
+                    )
+                }
+            } else if (inOutro) {
+                Box(Modifier.align(Alignment.BottomEnd).padding(end = 28.dp, bottom = 110.dp)) {
+                    AutoFillSkipPill(
+                        key = "outro-${request.nextLabel ?: "next"}",
+                        label = tr("Prochain épisode") + (request.nextLabel?.let { " · $it" } ?: ""),
+                        onTrigger = {
+                            scope.launch {
+                                val nextReq = runCatching { request.next?.invoke() }.getOrNull()
+                                if (nextReq != null) Nav.zap(nextReq)
+                            }
+                        },
+                        onDismiss = { dismissedSegments = dismissedSegments + "outro" },
+                    )
                 }
             }
         }
@@ -1073,5 +1109,79 @@ private fun CastOverlay(state: ChromecastService.State, onStop: () -> Unit) {
             style = Type.displaySerif(24), color = Color.White, textAlign = TextAlign.Center,
         )
         Pill(if (state.state == ChromecastService.CastState.Failed) tr("Fermer") else tr("Arrêter"), Icons.Filled.Stop, primary = true, onClick = onStop)
+    }
+}
+
+@Composable
+private fun AutoFillSkipPill(
+    key: String,
+    label: String,
+    durationMs: Int = 5000,
+    onTrigger: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val p = VeltrioTheme.palette
+    val progress = remember(key) { androidx.compose.animation.core.Animatable(0f) }
+    var triggered by remember(key) { mutableStateOf(false) }
+
+    LaunchedEffect(key) {
+        progress.snapTo(0f)
+        triggered = false
+        progress.animateTo(
+            targetValue = 1f,
+            animationSpec = androidx.compose.animation.core.tween(
+                durationMillis = durationMs,
+                easing = androidx.compose.animation.core.LinearEasing,
+            ),
+        )
+        if (!triggered) {
+            triggered = true
+            onTrigger()
+        }
+    }
+
+    Row(
+        Modifier
+            .clip(RoundedCornerShape(6.dp))
+            .background(Color.Black.copy(alpha = 0.78f))
+            .border(1.dp, Color.White.copy(alpha = 0.25f), RoundedCornerShape(6.dp)),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier
+                .clickable {
+                    if (!triggered) {
+                        triggered = true
+                        onTrigger()
+                    }
+                },
+        ) {
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .fillMaxWidth(progress.value.coerceIn(0f, 1f))
+                    .background(p.accent),
+            )
+            Row(
+                Modifier.padding(horizontal = 18.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Icon(Icons.Filled.SkipNext, null, Modifier.size(16.dp), tint = Color.White)
+                Text(label.uppercase(), style = Type.eyebrow(11, 0.14f), color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        Box(
+            Modifier
+                .size(40.dp)
+                .background(Color.Black.copy(alpha = 0.85f))
+                .clickable {
+                    triggered = true
+                    onDismiss()
+                },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Icons.Filled.Close, tr("Fermer"), Modifier.size(15.dp), tint = Color.White.copy(alpha = 0.85f))
+        }
     }
 }

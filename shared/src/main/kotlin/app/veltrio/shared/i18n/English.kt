@@ -500,5 +500,7 @@ internal object English {
         "Déverrouiller" to "Unlock",
         "Code PIN incorrect." to "Incorrect PIN.",
         "Saisissez 4 chiffres." to "Enter 4 digits.",
+        "Passer le récap" to "Skip recap",
+        "Prochain épisode" to "Next episode",
     )
 }
