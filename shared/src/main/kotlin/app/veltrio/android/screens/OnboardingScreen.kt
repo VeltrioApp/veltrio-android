@@ -398,6 +398,39 @@ private fun PhoneOnboarding(onDone: () -> Unit) {
                         addonMessage?.let { Text(it, style = Type.caption(12), color = p.success) }
                         addonError?.let { Text(it, style = Type.caption(12), color = p.danger) }
                     }
+
+                    // Optional TMDB API key for localized movie & series metadata
+                    val tmdb by app.veltrio.shared.TmdbService.state.collectAsState()
+                    var tmdbKey by remember { mutableStateOf("") }
+                    Column(
+                        Modifier.fillMaxWidth().background(p.surface).border(1.dp, p.hairline).padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Text(tr("Résumés & titres dans votre langue (TMDB)"), style = Type.label(14, FontWeight.SemiBold), color = p.textPrimary)
+                        Text(
+                            tr("Optionnel : ajoutez une clé API gratuite TMDB (themoviedb.org/settings/api) pour traduire les fiches Cinemeta. Transférée automatiquement vers votre TV."),
+                            style = Type.caption(12),
+                            color = p.textSecondary,
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf("fr-FR" to "FR", "en-US" to "EN", "es-ES" to "ES", "de-DE" to "DE").forEach { (code, lbl) ->
+                                app.veltrio.android.ui.Chip(lbl, tmdb.language == code) {
+                                    app.veltrio.shared.TmdbService.setLanguage(code)
+                                }
+                            }
+                        }
+                        if (tmdb.connected) {
+                            Text(tr("Clé TMDB connectée ✓"), style = Type.caption(12), color = p.success)
+                        } else {
+                            Field(tmdbKey, { tmdbKey = it }, tr("Clé API ou jeton TMDB (optionnel)"))
+                            GhostButton(tr("Enregistrer la clé TMDB"), enabled = !tmdb.busy && tmdbKey.isNotBlank()) {
+                                scope.launch {
+                                    if (app.veltrio.shared.TmdbService.connect(tmdbKey)) tmdbKey = ""
+                                }
+                            }
+                        }
+                        tmdb.error?.let { Text(it, style = Type.caption(12), color = p.danger) }
+                    }
                 }
 
                 else -> {

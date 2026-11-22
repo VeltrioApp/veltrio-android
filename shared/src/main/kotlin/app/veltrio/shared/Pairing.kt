@@ -121,7 +121,7 @@ object Pairing {
             playlists = IptvStore.playlists.value.filter { !it.url.startsWith("file://") }.map { p ->
                 BundlePlaylist(p.name, p.url, p.xtream?.host, p.xtream?.username, p.xtream?.password, p.xtream?.output ?: "ts")
             },
-            secrets = listOf("debrid.", "stremio.", "trakt.", "simkl.", "mediaserver.").fold(emptyMap()) { acc, prefix -> acc + SecretStore.withPrefix(prefix) },
+            secrets = listOf("debrid.", "stremio.", "trakt.", "simkl.", "mediaserver.", "tmdb.").fold(emptyMap()) { acc, prefix -> acc + SecretStore.withPrefix(prefix) },
             mediaServers = MediaServerKind.entries.mapNotNull { k -> MediaServers.savedOrNull(k)?.let { k.name.lowercase() to it } }.toMap(),
             watch = WatchStore.entries.value.values.toList(),
             playerPrefs = PlayerPrefs.current,
@@ -151,6 +151,7 @@ object Pairing {
         StremioAccount.reload()
         TraktAccount.reload()
         SimklAccount.reload()
+        TmdbService.reload()
         MediaServers.all.forEach { it.reload() }
         val titles = WatchStore.mergeEntries(bundle.watch)
         bundle.playerPrefs?.let { prefs -> PlayerPrefs.update { prefs } }

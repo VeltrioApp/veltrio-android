@@ -102,6 +102,7 @@ fun SettingsScreen() {
             Section(3, tr("Comptes")) {
                 Body(tr("Importez votre bibliothèque dans la Collection et suivez ce que vous regardez. L'import ne fait qu'ajouter : il ne retire rien et ne remet aucune progression à zéro."))
                 AccountsSection()
+                TmdbCard()
             }
             Section(4, tr("Lecture")) { PlaybackSection() }
             Section(5, tr("Apparence")) {
@@ -482,4 +483,45 @@ private fun UpdateRow() {
         else -> null
     }
     status?.let { Text(it, style = Type.caption(12), color = if (step == app.veltrio.shared.Updater.Step.Failed) p.danger else p.textTertiary) }
+}
+
+/** Optional TMDB API key + metadata language for localized titles & synopses. */
+@Composable
+private fun TmdbCard() {
+    val p = VeltrioTheme.palette
+    val scope = rememberCoroutineScope()
+    val state by app.veltrio.shared.TmdbService.state.collectAsState()
+    var keyInput by remember { mutableStateOf("") }
+    Column(
+        Modifier.fillMaxWidth().border(1.dp, p.border).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("TMDB", style = Type.title(16), color = p.textPrimary, modifier = Modifier.weight(1f))
+            Text(
+                if (state.connected) tr("CONNECTÉ") else tr("OPTIONNEL"),
+                style = Type.mono(10, FontWeight.Bold),
+                color = if (state.connected) p.success else p.textQuaternary,
+            )
+        }
+        Body(tr("Traduit automatiquement les titres et résumés des films et séries dans la langue de votre choix (clé API v3 ou jeton v4 gratuit sur themoviedb.org/settings/api)."))
+        if (state.connected) {
+            Picker(
+                tr("Langue des fiches"),
+                app.veltrio.shared.TmdbService.languages,
+                state.language,
+            ) { app.veltrio.shared.TmdbService.setLanguage(it) }
+            GhostButton(tr("Déconnecter TMDB")) { app.veltrio.shared.TmdbService.disconnect() }
+        } else {
+            TextInput(keyInput, { keyInput = it }, tr("Clé API ou jeton TMDB"))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                PrimaryButton(tr("Connecter"), loading = state.busy, enabled = keyInput.isNotBlank()) {
+                    scope.launch {
+                        if (app.veltrio.shared.TmdbService.connect(keyInput)) keyInput = ""
+                    }
+                }
+            }
+        }
+        state.error?.let { Text(it, style = Type.caption(12), color = p.danger) }
+    }
 }

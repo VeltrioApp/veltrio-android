@@ -24,6 +24,7 @@ object Storage {
         AppPrefs.load()
         PlayerPrefs.load()
         Core.init(context)
+        TmdbService.reload()
         WatchStore.init()
         app.veltrio.shared.iptv.IptvCache.init(context)
         app.veltrio.shared.iptv.IptvStore.init()

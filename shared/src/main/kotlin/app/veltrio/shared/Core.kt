@@ -159,7 +159,12 @@ object Core {
         var last: Exception? = null
         for (addon in ordered) {
             try {
-                return TitleDetails.from(withTimeout(15_000) { client.fetchMeta(addon.transportUrl, type, id) }, addon)
+                val base = TitleDetails.from(withTimeout(15_000) { client.fetchMeta(addon.transportUrl, type, id) }, addon)
+                val loc = TmdbService.localize(base.id, type)
+                return if (loc != null) base.copy(
+                    name = loc.title ?: base.name,
+                    description = loc.overview ?: base.description,
+                ) else base
             } catch (e: Exception) {
                 last = e
             }
