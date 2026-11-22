@@ -76,7 +76,9 @@ object TmdbService {
             _state.value = _state.value.copy(connected = true, busy = false, error = null)
             true
         } catch (e: Exception) {
-            _state.value = _state.value.copy(busy = false, error = e.message ?: Core.humanize(e))
+            android.util.Log.e("VeltrioTMDB", "TMDB connect failed", e)
+            val detail = generateSequence<Throwable>(e) { it.cause }.lastOrNull()?.message ?: e.message ?: Core.humanize(e)
+            _state.value = _state.value.copy(busy = false, error = detail)
             false
         }
     }
