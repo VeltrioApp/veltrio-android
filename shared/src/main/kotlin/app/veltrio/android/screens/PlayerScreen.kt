@@ -378,6 +378,11 @@ fun PlayerScreen(request: PlayRequest) {
         }
 
         panel?.let { current ->
+            val panelFocus = remember(current) { FocusRequester() }
+            LaunchedEffect(current) {
+                delay(60)
+                runCatching { panelFocus.requestFocus() }
+            }
             SidePanel(
                 when (current) {
                     Panel.Channels -> tr("Chaînes")
@@ -391,9 +396,10 @@ fun PlayerScreen(request: PlayRequest) {
                 },
                 onClose = { panel = null },
                 Modifier.align(Alignment.CenterEnd),
+                closeModifier = if (current == Panel.Channels) Modifier else Modifier.focusRequester(panelFocus),
             ) {
                 when (current) {
-                    Panel.Channels -> ChannelList(request)
+                    Panel.Channels -> ChannelList(request, panelFocus, onClose = { panel = null })
                     Panel.Audio -> state.audio.forEach { t ->
                         Option(t.label, t.codec?.uppercase(), t.id == state.audioId) { player.selectAudio(t.id) }
                     }
@@ -735,14 +741,20 @@ private fun Modifier.pointerInputDrag(max: Double, onStart: (Double) -> Unit, on
     )
 
 @Composable
-private fun SidePanel(title: String, onClose: () -> Unit, modifier: Modifier, content: @Composable () -> Unit) {
+private fun SidePanel(
+    title: String,
+    onClose: () -> Unit,
+    modifier: Modifier,
+    closeModifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
     val p = VeltrioTheme.palette
     Column(
         modifier.fillMaxHeight().width(320.dp).background(Color(0xF0101010)).safeDrawingPadding().padding(vertical = 18.dp),
     ) {
         Row(Modifier.padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(title.uppercase(), style = Type.eyebrow(10, 0.24f), color = p.accentText, modifier = Modifier.weight(1f))
-            Icon(Icons.Filled.Close, tr("Fermer"), Modifier.size(22.dp).clickable(onClick = onClose), tint = Color.White)
+            Icon(Icons.Filled.Close, tr("Fermer"), closeModifier.size(22.dp).clickable(onClick = onClose), tint = Color.White)
         }
         Spacer(Modifier.height(10.dp))
         LazyColumn { item { Column { content() } } }
@@ -892,7 +904,7 @@ private fun format(seconds: Double): String {
 /** Live TV: the bouquet picker, set to the current channel's, and its
  *  channels with the one playing marked; a tap zaps. */
 @Composable
-private fun ChannelList(request: PlayRequest) {
+private fun ChannelList(request: PlayRequest, listFocus: FocusRequester, onClose: () -> Unit) {
     val p = VeltrioTheme.palette
     val playlist = request.playlist ?: return
     val playing = request.channel ?: return
@@ -901,6 +913,16 @@ private fun ChannelList(request: PlayRequest) {
     val groups = remember(channels) { channels.map { it.group }.distinct() }
     var group by remember { mutableStateOf(playing.group) }
     var open by remember { mutableStateOf(false) }
+    val filtered = remember(channels, group) { channels.filter { it.group == group } }
+    val focusTargetId = remember(filtered, playing.id) {
+        filtered.firstOrNull { it.id == playing.id }?.id ?: filtered.firstOrNull()?.id
+    }
+    LaunchedEffect(focusTargetId) {
+        if (focusTargetId != null) {
+            delay(50)
+            runCatching { listFocus.requestFocus() }
+        }
+    }
     Column(Modifier.padding(horizontal = 20.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(tr("BOUQUET"), style = Type.eyebrow(9, 0.18f), color = Color.White.copy(alpha = 0.5f))
         Box {
@@ -922,11 +944,14 @@ private fun ChannelList(request: PlayRequest) {
         }
         Text(tr("EN COURS · %s %s", playing.numberLabel, playing.name).trim(), style = Type.mono(10, FontWeight.SemiBold), color = p.accent, modifier = Modifier.padding(top = 6.dp))
     }
-    channels.filter { it.group == group }.forEach { c ->
+    filtered.forEach { c ->
         val current = c.id == playing.id
+        val focusMod = if (c.id == focusTargetId) Modifier.focusRequester(listFocus) else Modifier
         Row(
-            Modifier.fillMaxWidth().background(if (current) p.accent.copy(alpha = 0.18f) else Color.Transparent)
-                .clickable(enabled = !current) { Nav.zap(PlayRequest.forChannel(c, playlist)) }.padding(horizontal = 20.dp, vertical = 10.dp),
+            focusMod.fillMaxWidth().background(if (current) p.accent.copy(alpha = 0.18f) else Color.Transparent)
+                .clickable {
+                    if (current) onClose() else Nav.zap(PlayRequest.forChannel(c, playlist))
+                }.padding(horizontal = 20.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Text(c.numberLabel, style = Type.mono(10), color = if (current) p.accent else Color.White.copy(alpha = 0.5f), modifier = Modifier.width(30.dp))
