@@ -162,18 +162,22 @@ private fun PlaylistView(playlist: PlaylistRef, playlists: List<PlaylistRef>, on
     val favorites by IptvStore.favorites.collectAsState()
     val hiddenGroups by IptvStore.hiddenGroups.collectAsState()
     var favoritesOnly by rememberSaveable(playlist.id, kind) { mutableStateOf(false) }
+    val kidsMode = Nav.kidsMode
     val all = items.orEmpty()
-    val groups = remember(all, hiddenGroups) {
+    val groups = remember(all, hiddenGroups, kidsMode) {
         all.groupBy { it.group }
-            .filterKeys { it !in hiddenGroups }
+            .filterKeys { it !in hiddenGroups && (!kidsMode || !app.veltrio.shared.AppPrefs.isAdultIptvGroup(it)) }
             .map { it.key to it.value.size }
     }
-    val favCount = remember(all, favorites) { all.count { it.id in favorites } }
+    val favCount = remember(all, favorites, kidsMode) {
+        all.count { it.id in favorites && (!kidsMode || !app.veltrio.shared.AppPrefs.isAdultIptvGroup(it.group)) }
+    }
     val text = filter.trim()
     val visible = all.filter {
+        val adultOk = !kidsMode || !app.veltrio.shared.AppPrefs.isAdultIptvGroup(it.group)
         val groupOk = if (favoritesOnly) (it.id in favorites)
         else (it.group !in hiddenGroups && (group == null || it.group == group))
-        groupOk && (text.isEmpty() || XtreamClient.titleMatches(it.name, text))
+        adultOk && groupOk && (text.isEmpty() || XtreamClient.titleMatches(it.name, text))
     }
     val current = selected?.takeIf { s -> visible.any { it.id == s.id } } ?: visible.firstOrNull()
 

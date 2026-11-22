@@ -33,6 +33,9 @@ internal object Translations {
         "Comédie" to "Comedia", "Drame" to "Drama", "Horreur" to "Terror", "Documentaire" to "Documental",
         "Effacer les filtres" to "Limpiar filtros", "★ Favoris (%s)" to "★ Favoritos (%s)",
         "Guide TV" to "Guía TV", "Liste" to "Lista", "TV en direct" to "TV en directo",
+        "Filmographie" to "Filmografía", "Image dans l'image" to "Imagen en imagen",
+        "Contrôle parental" to "Control parental", "Mode Enfants" to "Modo Niños",
+        "Déverrouiller" to "Desbloquear", "Code PIN" to "Código PIN",
     )
 
     private val de = mapOf(
@@ -58,6 +61,9 @@ internal object Translations {
         "Comédie" to "Komödie", "Drame" to "Drama", "Horreur" to "Horror", "Documentaire" to "Dokumentation",
         "Effacer les filtres" to "Filter zurücksetzen", "★ Favoris (%s)" to "★ Favoriten (%s)",
         "Guide TV" to "TV-Programm", "Liste" to "Liste", "TV en direct" to "Live-TV",
+        "Filmographie" to "Filmografie", "Image dans l'image" to "Bild-in-Bild",
+        "Contrôle parental" to "Kindersicherung", "Mode Enfants" to "Kindermodus",
+        "Déverrouiller" to "Entsperren", "Code PIN" to "PIN-Code",
     )
 
     private val it = mapOf(
@@ -83,5 +89,8 @@ internal object Translations {
         "Comédie" to "Commedia", "Drame" to "Dramma", "Horreur" to "Horror", "Documentaire" to "Documentario",
         "Effacer les filtres" to "Cancella filtri", "★ Favoris (%s)" to "★ Preferiti (%s)",
         "Guide TV" to "Guida TV", "Liste" to "Elenco", "TV en direct" to "TV in diretta",
+        "Filmographie" to "Filmografia", "Image dans l'image" to "Picture-in-Picture",
+        "Contrôle parental" to "Controllo parentale", "Mode Enfants" to "Modalità Bambini",
+        "Déverrouiller" to "Sblocca", "Code PIN" to "Codice PIN",
     )
 }

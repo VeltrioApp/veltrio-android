@@ -62,6 +62,8 @@ data class SettingsBundle(
     val appLanguage: String? = null,
     val iptvFavorites: List<String> = emptyList(),
     val iptvHiddenGroups: List<String> = emptyList(),
+    val kidsMode: Boolean? = null,
+    val kidsPin: String? = null,
 )
 
 @Serializable
@@ -131,6 +133,8 @@ object Pairing {
             appLanguage = AppPrefs.current.appLanguage.takeIf { it.isNotEmpty() },
             iptvFavorites = IptvStore.favorites.value.toList(),
             iptvHiddenGroups = IptvStore.hiddenGroups.value.toList(),
+            kidsMode = AppPrefs.current.kidsMode,
+            kidsPin = AppPrefs.current.kidsPin.takeIf { it.isNotEmpty() },
         )
     }
 
@@ -162,6 +166,15 @@ object Pairing {
         val titles = WatchStore.mergeEntries(bundle.watch)
         bundle.playerPrefs?.let { prefs -> PlayerPrefs.update { prefs } }
         bundle.appLanguage?.let { lang -> AppPrefs.update { it.copy(appLanguage = lang) } }
+        if (bundle.kidsMode != null || bundle.kidsPin != null) {
+            AppPrefs.update {
+                it.copy(
+                    kidsMode = bundle.kidsMode ?: it.kidsMode,
+                    kidsPin = bundle.kidsPin ?: it.kidsPin,
+                )
+            }
+            Core.clearCatalogCache()
+        }
         IptvStore.mergeFavoritesAndHidden(bundle.iptvFavorites, bundle.iptvHiddenGroups)
         val accounts = secrets.keys.map { it.substringBefore('.') }.distinct().size
         fun count(n: Int, one: String, many: String) = if (n == 0) null else "$n ${if (n > 1) many else one}"

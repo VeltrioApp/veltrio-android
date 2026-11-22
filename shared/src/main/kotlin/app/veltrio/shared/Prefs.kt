@@ -26,11 +26,25 @@ data class AppPrefs(
     val autoCheckUpdates: Boolean = true,
     /** "" = system default, "fr" = French, "en" = English. */
     val appLanguage: String = "",
+    /** Parental control: filters TMDB to family-friendly titles & hides adult IPTV groups. */
+    val kidsMode: Boolean = false,
+    /** Optional 4-digit PIN required to disable Kids Mode. */
+    val kidsPin: String = "",
 ) {
     companion object {
         private const val FILE = "app-prefs.json"
         var current: AppPrefs = AppPrefs()
             private set
+
+        private val adultGroupKeywords = listOf(
+            "adult", "xxx", "18+", "+18", "porn", "erotic", "érotique", "erotique",
+            "charme", "nsfw", "x-rated", "for adults", "adults only", "sex",
+        )
+
+        fun isAdultIptvGroup(group: String): Boolean {
+            val g = group.lowercase()
+            return adultGroupKeywords.any { it in g }
+        }
 
         val appLanguages: List<Pair<String, String>>
             get() = listOf(

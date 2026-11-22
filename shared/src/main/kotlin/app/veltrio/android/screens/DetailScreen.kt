@@ -211,6 +211,14 @@ fun DetailScreen(request: DetailRequest) {
         }
     }
 
+    var selectedPerson by remember { mutableStateOf<String?>(null) }
+    selectedPerson?.let { person ->
+        PersonFilmographyDialog(person, onDismiss = { selectedPerson = null }) { item ->
+            selectedPerson = null
+            openPoster(item)
+        }
+    }
+
     if (LocalTv.current) {
         Box(Modifier.fillMaxSize().background(p.background)) {
             AsyncImage(d?.background ?: request.background ?: request.poster, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, alpha = 0.28f)
@@ -289,9 +297,9 @@ fun DetailScreen(request: DetailRequest) {
                         Column(Modifier.padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Box(Modifier.fillMaxWidth().height(1.dp).background(p.hairline))
                             Eyebrow(tr("Générique"), p.textTertiary)
-                            Fact(tr("Réalisation"), d.director.take(3).joinToString(", ").ifEmpty { null })
+                            PersonFactRow(tr("Réalisation"), d.director.take(3)) { selectedPerson = it }
                             Fact(tr("Scénario"), d.writer.take(3).joinToString(", ").ifEmpty { null })
-                            Fact(tr("Distribution"), d.cast.take(6).joinToString(", ").ifEmpty { null })
+                            PersonFactRow(tr("Distribution"), d.cast.take(8)) { selectedPerson = it }
                         }
                     }
                 }
@@ -459,9 +467,9 @@ fun DetailScreen(request: DetailRequest) {
                     Column(Modifier.padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Box(Modifier.fillMaxWidth().height(1.dp).background(p.hairline))
                         Eyebrow(tr("Générique"), p.textTertiary)
-                        Fact(tr("Réalisation"), d.director.take(3).joinToString(", ").ifEmpty { null })
+                        PersonFactRow(tr("Réalisation"), d.director.take(3)) { selectedPerson = it }
                         Fact(tr("Scénario"), d.writer.take(3).joinToString(", ").ifEmpty { null })
-                        Fact(tr("Distribution"), d.cast.take(6).joinToString(", ").ifEmpty { null })
+                        PersonFactRow(tr("Distribution"), d.cast.take(8)) { selectedPerson = it }
                     }
                 }
                 Box(Modifier.fillMaxWidth().height(1.dp).background(p.hairline))
@@ -550,6 +558,69 @@ fun DetailScreen(request: DetailRequest) {
                         items(d.recommendations, key = { it.id }) { item ->
                             PosterCard(item.title, item.posterUrl, item.subtitle) { openPoster(item) }
                         }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PersonFactRow(label: String, names: List<String>, onSelect: (String) -> Unit) {
+    if (names.isEmpty()) return
+    val p = VeltrioTheme.palette
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(label.uppercase(), style = Type.eyebrow(9, 0.18f), color = p.textQuaternary)
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            names.forEach { name ->
+                Chip(name, false) { onSelect(name) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PersonFilmographyDialog(
+    personName: String,
+    onDismiss: () -> Unit,
+    onOpen: (app.veltrio.shared.PosterItem) -> Unit,
+) {
+    val p = VeltrioTheme.palette
+    var credits by remember(personName) { mutableStateOf<List<app.veltrio.shared.PosterItem>?>(null) }
+    var error by remember(personName) { mutableStateOf<String?>(null) }
+    LaunchedEffect(personName) {
+        credits = null
+        error = null
+        try {
+            credits = app.veltrio.shared.TmdbService.fetchPersonCredits(personName)
+        } catch (e: Exception) {
+            error = Core.humanize(e)
+            credits = emptyList()
+        }
+    }
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .background(p.surface, androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
+                .border(1.dp, p.border, androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
+                .padding(Spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Eyebrow(tr("Filmographie"), p.accentText)
+                    Text(personName, style = Type.displaySerif(22), color = p.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                GhostButton(tr("Fermer")) { onDismiss() }
+            }
+            when {
+                credits == null -> LoadingRow()
+                error != null -> Text(error!!, style = Type.caption(12), color = p.danger)
+                credits!!.isEmpty() -> Text(tr("Aucun titre trouvé sur TMDB."), style = Type.caption(12), color = p.textTertiary)
+                else -> LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    items(credits!!, key = { "${it.type}:${it.id}" }) { item ->
+                        PosterCard(item.title, item.posterUrl, item.subtitle) { onOpen(item) }
                     }
                 }
             }

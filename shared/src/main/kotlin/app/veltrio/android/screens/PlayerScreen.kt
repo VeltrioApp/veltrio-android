@@ -2,7 +2,10 @@ package app.veltrio.android.screens
 
 import app.veltrio.shared.i18n.tr
 import android.app.Activity
+import android.app.PictureInPictureParams
 import android.content.pm.ActivityInfo
+import android.os.Build
+import android.util.Rational
 import android.view.SurfaceView
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -49,6 +52,7 @@ import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Forward10
 import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PictureInPictureAlt
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Replay10
@@ -161,8 +165,13 @@ fun PlayerScreen(request: PlayRequest) {
         }
     }
     DisposableEffect(Unit) {
+        Nav.isInPlayer = true
         ChromecastService.startDiscovery(context)
-        onDispose { ChromecastService.stopDiscovery() }
+        onDispose {
+            Nav.isInPlayer = false
+            Nav.inPipMode = false
+            ChromecastService.stopDiscovery()
+        }
     }
     var attempt by remember { mutableIntStateOf(0) }
     var controls by remember { mutableStateOf(true) }
@@ -369,9 +378,27 @@ fun PlayerScreen(request: PlayRequest) {
             )
         }
 
-        AnimatedVisibility(controls && error == null, enter = fadeIn(), exit = fadeOut()) {
+        val pipAvailable = !app.veltrio.android.LocalTv.current && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+        AnimatedVisibility(controls && error == null && !Nav.inPipMode, enter = fadeIn(), exit = fadeOut()) {
             Box(Modifier.fillMaxSize()) {
-                TopBar(request, state, Modifier.align(Alignment.TopCenter), topBarFocus, downFocus = if (!request.isLive) seekFocus else playFocus, onReplay = { replay = true }) {
+                TopBar(
+                    request, state, Modifier.align(Alignment.TopCenter), topBarFocus,
+                    downFocus = if (!request.isLive) seekFocus else playFocus,
+                    onReplay = { replay = true },
+                    onPip = if (pipAvailable) {
+                        {
+                            panel = null
+                            controls = false
+                            runCatching {
+                                activity.enterPictureInPictureMode(
+                                    PictureInPictureParams.Builder()
+                                        .setAspectRatio(Rational(16, 9))
+                                        .build()
+                                )
+                            }
+                        }
+                    } else null,
+                ) {
                     panel = if (panel == it) null else it
                     touched++
                 }
@@ -546,6 +573,7 @@ private fun TopBar(
     backFocus: FocusRequester,
     downFocus: FocusRequester,
     onReplay: () -> Unit,
+    onPip: (() -> Unit)? = null,
     onPanel: (Panel) -> Unit,
 ) {
     Row(
@@ -579,6 +607,7 @@ private fun TopBar(
         GlassIcon(Icons.Filled.AspectRatio, tr("Format")) { onPanel(Panel.Aspect) }
         GlassIcon(Icons.Filled.Tune, tr("Profil de lecture")) { onPanel(Panel.Profile) }
         if (request.isLive && request.channel?.hasCatchup == true && request.playlist?.xtream != null) GlassIcon(Icons.Filled.History, tr("Revoir")) { onReplay() }
+        if (onPip != null) GlassIcon(Icons.Filled.PictureInPictureAlt, tr("Image dans l'image"), onPip)
         GlassIcon(Icons.Filled.Cast, tr("Caster")) { onPanel(Panel.Cast) }
         GlassIcon(Icons.Outlined.Info, tr("Infos média")) { onPanel(Panel.Info) }
     }

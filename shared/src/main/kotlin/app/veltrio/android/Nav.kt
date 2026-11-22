@@ -25,6 +25,15 @@ object Nav {
     /** The theme in use, changed live from Settings. */
     var theme by androidx.compose.runtime.mutableStateOf(app.veltrio.shared.AppPrefs.current.theme)
 
+    /** Parental control (Kids Mode), toggled live from Settings. */
+    var kidsMode by androidx.compose.runtime.mutableStateOf(app.veltrio.shared.AppPrefs.current.kidsMode)
+
+    /** True while PlayerScreen is mounted (enables auto-PiP on home gesture). */
+    var isInPlayer by androidx.compose.runtime.mutableStateOf(false)
+
+    /** True while the Activity is in Android Picture-in-Picture mode. */
+    var inPipMode by androidx.compose.runtime.mutableStateOf(false)
+
     /** Back to the top level, on one of the four sections. */
     fun showTab(index: Int) {
         tab = index

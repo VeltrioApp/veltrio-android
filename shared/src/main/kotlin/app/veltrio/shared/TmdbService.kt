@@ -152,14 +152,22 @@ object TmdbService {
         val lang = language
         val page = (skip / 20) + 1
         val isSeries = type.equals("series", ignoreCase = true)
-        val path = when {
-            !isSeries && catalogId == "trending" -> "/trending/movie/week?language=$lang&page=$page"
-            isSeries && catalogId == "trending" -> "/trending/tv/week?language=$lang&page=$page"
-            !isSeries && catalogId == "now_playing" -> "/movie/now_playing?language=$lang&page=$page"
-            isSeries && catalogId == "on_the_air" -> "/tv/on_the_air?language=$lang&page=$page"
-            !isSeries && catalogId == "top_rated" -> "/movie/top_rated?language=$lang&page=$page"
-            isSeries && catalogId == "top_rated" -> "/tv/top_rated?language=$lang&page=$page"
-            else -> return emptyList()
+        val kids = AppPrefs.current.kidsMode
+        val path = if (kids) {
+            val endpoint = if (isSeries) "tv" else "movie"
+            val sort = if (catalogId == "top_rated") "vote_average.desc&vote_count.gte=100" else "popularity.desc"
+            val cert = if (!isSeries) "&certification_country=US&certification.lte=PG" else ""
+            "/discover/$endpoint?language=$lang&page=$page&include_adult=false&with_genres=10751|16&sort_by=$sort$cert"
+        } else {
+            when {
+                !isSeries && catalogId == "trending" -> "/trending/movie/week?language=$lang&page=$page"
+                isSeries && catalogId == "trending" -> "/trending/tv/week?language=$lang&page=$page"
+                !isSeries && catalogId == "now_playing" -> "/movie/now_playing?language=$lang&page=$page"
+                isSeries && catalogId == "on_the_air" -> "/tv/on_the_air?language=$lang&page=$page"
+                !isSeries && catalogId == "top_rated" -> "/movie/top_rated?language=$lang&page=$page"
+                isSeries && catalogId == "top_rated" -> "/tv/top_rated?language=$lang&page=$page"
+                else -> return emptyList()
+            }
         }
         val genres = genreMap(isSeries, lang, key)
         val json = Http.json(buildRequest(path, key), "TMDB")
@@ -176,7 +184,16 @@ object TmdbService {
         val genres = genreMap(isSeries, lang, key)
         val json = Http.json(buildRequest("/search/$endpoint?query=$encoded&language=$lang&include_adult=false", key), "TMDB")
         val addon = virtualAddon()
-        return json.array("results").mapNotNull { parsePoster(it, if (isSeries) "series" else "movie", genres, addon) }
+        val kids = AppPrefs.current.kidsMode
+        return json.array("results")
+            .filter { el ->
+                if (!kids) true
+                else {
+                    val gids = el.array("genre_ids").mapNotNull { (it as? JsonPrimitive)?.intOrNull }
+                    (el["adult"] as? JsonPrimitive)?.content != "true" && (gids.isEmpty() || 10751 in gids || 16 in gids)
+                }
+            }
+            .mapNotNull { parsePoster(it, if (isSeries) "series" else "movie", genres, addon) }
     }
 
     /** Popular streaming providers and quick genres for the Discover bar. */
@@ -210,12 +227,18 @@ object TmdbService {
         val region = lang.substringAfter('-', "FR").uppercase()
         val isSeries = type.equals("series", ignoreCase = true)
         val endpoint = if (isSeries) "tv" else "movie"
+        val kids = AppPrefs.current.kidsMode
         val params = buildList {
             add("language=$lang")
             add("sort_by=popularity.desc")
             add("include_adult=false")
             add("page=$page")
-            if (genreId != null) add("with_genres=$genreId")
+            if (kids) {
+                add("with_genres=10751|16")
+                if (!isSeries) add("certification_country=US&certification.lte=PG")
+            } else if (genreId != null) {
+                add("with_genres=$genreId")
+            }
             if (providerId != null) {
                 add("with_watch_providers=$providerId")
                 add("watch_region=$region")
@@ -225,6 +248,41 @@ object TmdbService {
         val json = Http.json(buildRequest("/discover/$endpoint?$params", key), "TMDB")
         val addon = virtualAddon()
         return json.array("results").mapNotNull { parsePoster(it, if (isSeries) "series" else "movie", genres, addon) }
+    }
+
+    /** Searches a person by name on TMDB and returns their combined movie & TV filmography. */
+    suspend fun fetchPersonCredits(name: String): List<PosterItem> {
+        val key = SecretStore.get(KEY_SECRET)?.takeIf { it.isNotBlank() } ?: return emptyList()
+        val clean = name.trim()
+        if (clean.isEmpty()) return emptyList()
+        val lang = language
+        val encoded = withContext(Dispatchers.IO) { URLEncoder.encode(clean, "UTF-8") }
+        val searchJson = Http.json(buildRequest("/search/person?query=$encoded&language=$lang&include_adult=false", key), "TMDB")
+        val personId = searchJson.array("results").firstOrNull()?.long("id")?.takeIf { it > 0 } ?: return emptyList()
+        val creditsJson = Http.json(buildRequest("/person/$personId/combined_credits?language=$lang", key), "TMDB")
+        val movieGenres = genreMap(false, lang, key)
+        val tvGenres = genreMap(true, lang, key)
+        val addon = virtualAddon()
+        val kids = AppPrefs.current.kidsMode
+        val seen = HashSet<String>()
+        val combined = creditsJson.array("cast") + creditsJson.array("crew")
+        return combined
+            .sortedByDescending { it.double("popularity") ?: 0.0 }
+            .mapNotNull { el ->
+                val mt = el.str("media_type") ?: return@mapNotNull null
+                if (mt != "movie" && mt != "tv") return@mapNotNull null
+                val tid = el.long("id").takeIf { it > 0 } ?: return@mapNotNull null
+                val dedupKey = "$mt:$tid"
+                if (!seen.add(dedupKey)) return@mapNotNull null
+                if (kids) {
+                    val gids = el.array("genre_ids").mapNotNull { (it as? JsonPrimitive)?.intOrNull }
+                    if ((el["adult"] as? JsonPrimitive)?.content == "true") return@mapNotNull null
+                    if (gids.isNotEmpty() && 10751 !in gids && 16 !in gids) return@mapNotNull null
+                }
+                val isSeries = mt == "tv"
+                parsePoster(el, if (isSeries) "series" else "movie", if (isSeries) tvGenres else movieGenres, addon)
+            }
+            .take(24)
     }
 
     // -------------------- full details --------------------

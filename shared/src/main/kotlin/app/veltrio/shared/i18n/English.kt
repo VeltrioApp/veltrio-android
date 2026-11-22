@@ -486,5 +486,19 @@ internal object English {
         "Bouquets masqués (%s)" to "Hidden groups (%s)",
         "Tout réafficher" to "Show all",
         "Rechercher OpenSubtitles" to "Search OpenSubtitles",
+        // Filmography, PiP & Parental Control
+        "Filmographie" to "Filmography",
+        "Aucun titre trouvé sur TMDB." to "No titles found on TMDB.",
+        "Image dans l'image" to "Picture in Picture",
+        "Contrôle parental" to "Parental Control",
+        "Mode Enfants" to "Kids Mode",
+        "Le Mode Enfants filtre les catalogues TMDB vers les films et séries familiaux et masque les bouquets IPTV adultes." to "Kids Mode filters TMDB catalogs to family-friendly titles and hides adult IPTV groups.",
+        "Code PIN" to "PIN code",
+        "Code PIN (4 chiffres)" to "4-digit PIN",
+        "PIN actif (••••)" to "PIN active (••••)",
+        "Définir le PIN" to "Set PIN",
+        "Déverrouiller" to "Unlock",
+        "Code PIN incorrect." to "Incorrect PIN.",
+        "Saisissez 4 chiffres." to "Enter 4 digits.",
     )
 }

@@ -91,7 +91,8 @@ fun HomeScreen() {
     val appLang = Lang.code
     val entries by WatchStore.entries.collectAsState()
     val continueWatching = remember(entries) { WatchStore.continueWatching }
-    val rows = remember(addons, disabled, tmdb.connected, tmdb.language, appLang) { Core.homeCatalogs().map { (a, c) -> Row(a, c) } }
+    val kidsMode = Nav.kidsMode
+    val rows = remember(addons, disabled, tmdb.connected, tmdb.language, appLang, kidsMode) { Core.homeCatalogs().map { (a, c) -> Row(a, c) } }
 
     if (rows.isEmpty()) {
         EmptyHome()

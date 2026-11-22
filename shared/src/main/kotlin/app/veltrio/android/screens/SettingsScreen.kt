@@ -125,6 +125,8 @@ fun SettingsScreen() {
                         }
                     }
                 }
+                Box(Modifier.fillMaxWidth().padding(vertical = 4.dp).height(1.dp).background(p.hairline))
+                ParentalControlSection()
             }
             Section(6, tr("Stockage")) { StorageSection() }
             Section(7, tr("Autres appareils")) {
@@ -149,6 +151,113 @@ fun SettingsScreen() {
                 Body(tr("Lecture par libmpv (LGPL 2.1+, mpv.io) et FFmpeg (LGPL 2.1+)."))
             }
         }
+    }
+}
+
+@Composable
+private fun ParentalControlSection() {
+    val p = VeltrioTheme.palette
+    var kidsMode by remember { mutableStateOf(AppPrefs.current.kidsMode) }
+    var savedPin by remember { mutableStateOf(AppPrefs.current.kidsPin) }
+    var pinInput by remember { mutableStateOf("") }
+    var unlocking by remember { mutableStateOf(false) }
+    var pinError by remember { mutableStateOf<String?>(null) }
+
+    fun applyKidsMode(enabled: Boolean) {
+        kidsMode = enabled
+        AppPrefs.update { it.copy(kidsMode = enabled) }
+        Nav.kidsMode = enabled
+        Core.clearCatalogCache()
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Eyebrow(tr("Contrôle parental"), p.accentText)
+        Body(tr("Le Mode Enfants filtre les catalogues TMDB vers les films et séries familiaux et masque les bouquets IPTV adultes."))
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(tr("Mode Enfants"), style = Type.label(14, FontWeight.SemiBold), color = p.textPrimary, modifier = Modifier.weight(1f))
+            Switch(
+                checked = kidsMode,
+                onCheckedChange = { wantOn ->
+                    pinError = null
+                    if (wantOn) {
+                        unlocking = false
+                        applyKidsMode(true)
+                    } else if (savedPin.isNotEmpty()) {
+                        unlocking = true
+                        pinInput = ""
+                    } else {
+                        applyKidsMode(false)
+                    }
+                },
+                colors = SwitchDefaults.colors(checkedThumbColor = p.accent, checkedTrackColor = p.accent.copy(alpha = 0.35f)),
+            )
+        }
+        if (unlocking) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                BasicTextField(
+                    value = pinInput,
+                    onValueChange = { pinInput = it.filter(Char::isDigit).take(4); pinError = null },
+                    singleLine = true,
+                    textStyle = Type.mono(15, FontWeight.Bold).copy(color = p.textPrimary),
+                    cursorBrush = SolidColor(p.accent),
+                    modifier = Modifier.width(120.dp).background(p.surface).border(1.dp, p.border).padding(horizontal = 12.dp, vertical = 10.dp),
+                    decorationBox = { inner ->
+                        if (pinInput.isEmpty()) Text(tr("Code PIN"), style = Type.caption(12), color = p.textQuaternary)
+                        inner()
+                    },
+                )
+                PrimaryButton(tr("Déverrouiller")) {
+                    if (pinInput == savedPin) {
+                        unlocking = false
+                        pinInput = ""
+                        pinError = null
+                        applyKidsMode(false)
+                    } else {
+                        pinError = tr("Code PIN incorrect.")
+                    }
+                }
+                GhostButton(tr("Annuler")) { unlocking = false; pinInput = ""; pinError = null }
+            }
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                BasicTextField(
+                    value = pinInput,
+                    onValueChange = { pinInput = it.filter(Char::isDigit).take(4); pinError = null },
+                    singleLine = true,
+                    textStyle = Type.mono(14).copy(color = p.textPrimary),
+                    cursorBrush = SolidColor(p.accent),
+                    modifier = Modifier.width(140.dp).background(p.surface).border(1.dp, p.border).padding(horizontal = 12.dp, vertical = 10.dp),
+                    decorationBox = { inner ->
+                        if (pinInput.isEmpty()) {
+                            Text(
+                                if (savedPin.isEmpty()) tr("Code PIN (4 chiffres)") else tr("PIN actif (••••)"),
+                                style = Type.caption(11),
+                                color = p.textQuaternary,
+                            )
+                        }
+                        inner()
+                    },
+                )
+                GhostButton(tr("Définir le PIN")) {
+                    if (pinInput.length == 4) {
+                        savedPin = pinInput
+                        AppPrefs.update { it.copy(kidsPin = savedPin) }
+                        pinInput = ""
+                        pinError = null
+                    } else {
+                        pinError = tr("Saisissez 4 chiffres.")
+                    }
+                }
+                if (savedPin.isNotEmpty() && !kidsMode) {
+                    GhostButton(tr("Retirer")) {
+                        savedPin = ""
+                        AppPrefs.update { it.copy(kidsPin = "") }
+                        pinInput = ""
+                    }
+                }
+            }
+        }
+        pinError?.let { Text(it, style = Type.caption(11), color = p.danger) }
     }
 }
 
