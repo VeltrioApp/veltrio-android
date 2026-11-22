@@ -106,6 +106,21 @@ fun SettingsScreen() {
             }
             Section(4, tr("Lecture")) { PlaybackSection() }
             Section(5, tr("Apparence")) {
+                Body(tr("Langue de l'application (synchronise aussi les catalogues TMDB)."))
+                val currentLang = app.veltrio.shared.i18n.Lang.code
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    AppPrefs.appLanguages.forEach { (code, label) ->
+                        Chip(label, currentLang == code) {
+                            AppPrefs.update { it.copy(appLanguage = code) }
+                            val tmdbLang = when (code) {
+                                "fr" -> "fr-FR"
+                                "en" -> "en-US"
+                                else -> if (app.veltrio.shared.i18n.Lang.french) "fr-FR" else "en-US"
+                            }
+                            app.veltrio.shared.TmdbService.setLanguage(tmdbLang)
+                        }
+                    }
+                }
                 Body(tr("Sombre : le noir de salle de cinéma, l'expérience de référence. Clair : un papier chaud pour la journée."))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     AppTheme.entries.forEach { t ->
@@ -499,12 +514,12 @@ private fun TmdbCard() {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("TMDB", style = Type.title(16), color = p.textPrimary, modifier = Modifier.weight(1f))
             Text(
-                if (state.connected) tr("CONNECTÉ") else tr("OPTIONNEL"),
+                if (state.connected) tr("CONNECTÉ") else tr("REQUIS POUR LES CATALOGUES"),
                 style = Type.mono(10, FontWeight.Bold),
-                color = if (state.connected) p.success else p.textQuaternary,
+                color = if (state.connected) p.success else p.accentText,
             )
         }
-        Body(tr("Traduit automatiquement les titres et résumés des films et séries dans la langue de votre choix (clé API v3 ou jeton v4 gratuit sur themoviedb.org/settings/api)."))
+        Body(tr("Fournit les catalogues de films et séries, le hero, la recherche et les résumés dans votre langue (clé API v3 ou jeton v4 gratuit sur themoviedb.org/settings/api)."))
         if (state.connected) {
             Picker(
                 tr("Langue des fiches"),

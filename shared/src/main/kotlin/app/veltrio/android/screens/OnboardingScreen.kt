@@ -58,11 +58,9 @@ import app.veltrio.shared.ui.Type
 import app.veltrio.shared.ui.VeltrioTheme
 import kotlinx.coroutines.launch
 
-private const val CINEMETA_URL = "https://v3-cinemeta.strem.io/manifest.json"
-
 /** First-launch onboarding for both Android phone/tablet and Android TV.
- *  - On TV: highlights LAN pairing ("Depuis un téléphone") + Stremio + Cinemeta.
- *  - On phone: 3-step editorial setup (Stremio sign-in first, Sources, Ready). */
+ *  - On TV: highlights LAN pairing ("Depuis un téléphone") + Stremio + TMDB.
+ *  - On phone: 3-step editorial setup (Language + TMDB + Stremio, Sources, Ready). */
 @Composable
 fun OnboardingScreen(onDone: () -> Unit) {
     val tv = LocalTv.current
@@ -70,14 +68,30 @@ fun OnboardingScreen(onDone: () -> Unit) {
 }
 
 @Composable
+private fun OnboardingLanguageChips() {
+    val current = app.veltrio.shared.i18n.Lang.code
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        listOf("fr" to "Français", "en" to "English").forEach { (code, label) ->
+            val selected = current == code || (current.isEmpty() && app.veltrio.shared.i18n.Lang.resolvedCode == code)
+            app.veltrio.android.ui.Chip(label, selected) {
+                AppPrefs.update { it.copy(appLanguage = code) }
+                app.veltrio.shared.TmdbService.setLanguage(if (code == "en") "en-US" else "fr-FR")
+            }
+        }
+    }
+}
+
+@Composable
 private fun TvOnboarding(onDone: () -> Unit) {
     val p = VeltrioTheme.palette
     val scope = rememberCoroutineScope()
     val stremio by StremioAccount.state.collectAsState()
+    val tmdb by app.veltrio.shared.TmdbService.state.collectAsState()
     var showStremioForm by remember { mutableStateOf(false) }
+    var showTmdbForm by remember { mutableStateOf(false) }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var busyCinemeta by remember { mutableStateOf(false) }
+    var tmdbKey by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
 
     fun finish() {
@@ -100,9 +114,10 @@ private fun TvOnboarding(onDone: () -> Unit) {
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Veltrio", style = Type.displaySerif(32, FontWeight.Bold), color = p.textPrimary)
                 Spacer(Modifier.weight(1f))
+                OnboardingLanguageChips()
                 GhostButton(tr("Passer")) { finish() }
             }
 
@@ -116,7 +131,7 @@ private fun TvOnboarding(onDone: () -> Unit) {
                 )
             }
 
-            if (!showStremioForm) {
+            if (!showStremioForm && !showTmdbForm) {
                 // Primary TV action: pair from phone/Mac
                 Column(
                     Modifier
@@ -131,7 +146,7 @@ private fun TvOnboarding(onDone: () -> Unit) {
                         Text(tr("Configurer depuis un téléphone ou un Mac"), style = Type.label(16, FontWeight.Bold), color = p.textPrimary)
                     }
                     Text(
-                        tr("Transfère vos addons, playlists IPTV, comptes débrideurs et votre Collection sur le réseau local avec un code à 6 chiffres."),
+                        tr("Transfère votre clé TMDB, vos addons, playlists IPTV, comptes débrideurs et votre Collection sur le réseau local avec un code à 6 chiffres."),
                         style = Type.body(13),
                         color = p.textSecondary,
                     )
@@ -163,17 +178,41 @@ private fun TvOnboarding(onDone: () -> Unit) {
                             .padding(20.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        Text(tr("Démarrer avec Cinemeta"), style = Type.label(15, FontWeight.Bold), color = p.textPrimary)
-                        Text(tr("Installe le catalogue films et séries populaires."), style = Type.caption(12), color = p.textSecondary)
-                        GhostButton(tr("Installer Cinemeta"), enabled = !busyCinemeta) {
-                            scope.launch {
-                                busyCinemeta = true
-                                error = Core.installAddon(CINEMETA_URL)
-                                busyCinemeta = false
-                                if (error == null) finish()
-                            }
+                        Text(tr("Catalogues TMDB"), style = Type.label(15, FontWeight.Bold), color = p.textPrimary)
+                        Text(
+                            if (tmdb.connected) tr("Clé TMDB connectée ✓") else tr("Ajoutez votre clé API TMDB pour les films, séries et résumés."),
+                            style = Type.caption(12),
+                            color = if (tmdb.connected) p.success else p.textSecondary,
+                        )
+                        GhostButton(if (tmdb.connected) tr("Terminer") else tr("Configurer TMDB")) {
+                            if (tmdb.connected) finish() else showTmdbForm = true
                         }
                     }
+                }
+            } else if (showTmdbForm) {
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .background(p.surface)
+                        .border(1.dp, p.accent.copy(alpha = 0.5f))
+                        .padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    Text(tr("Connecter TMDB"), style = Type.label(16, FontWeight.Bold), color = p.textPrimary)
+                    Text(tr("Clé API v3 ou jeton v4 gratuit sur themoviedb.org/settings/api."), style = Type.caption(12), color = p.textSecondary)
+                    Field(tmdbKey, { tmdbKey = it }, tr("Clé API ou jeton TMDB"))
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        PrimaryButton(tr("Connecter"), loading = tmdb.busy, enabled = tmdbKey.isNotBlank()) {
+                            scope.launch {
+                                if (app.veltrio.shared.TmdbService.connect(tmdbKey)) {
+                                    tmdbKey = ""
+                                    finish()
+                                }
+                            }
+                        }
+                        GhostButton(tr("Retour")) { showTmdbForm = false }
+                    }
+                    tmdb.error?.let { Text(it, style = Type.caption(12), color = p.danger) }
                 }
             } else {
                 Column(
@@ -218,23 +257,17 @@ private fun PhoneOnboarding(onDone: () -> Unit) {
 
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var installCinemeta by remember { mutableStateOf(true) }
     var customUrl by remember { mutableStateOf("") }
     var installingAddon by remember { mutableStateOf(false) }
     var addonMessage by remember { mutableStateOf<String?>(null) }
     var addonError by remember { mutableStateOf<String?>(null) }
     var finishing by remember { mutableStateOf(false) }
 
-    fun finish(skipCinemeta: Boolean = false) {
-        scope.launch {
-            finishing = true
-            if (!skipCinemeta && installCinemeta && !Core.isInstalled(CINEMETA_URL)) {
-                Core.installAddon(CINEMETA_URL)
-            }
-            AppPrefs.update { it.copy(onboardingDone = true) }
-            finishing = false
-            onDone()
-        }
+    fun finish() {
+        finishing = true
+        AppPrefs.update { it.copy(onboardingDone = true) }
+        finishing = false
+        onDone()
     }
 
     Column(Modifier.fillMaxSize().background(p.background).safeDrawingPadding()) {
@@ -251,7 +284,7 @@ private fun PhoneOnboarding(onDone: () -> Unit) {
                 tr("PASSER"),
                 style = Type.label(11, FontWeight.Bold),
                 color = p.textTertiary,
-                modifier = Modifier.clickable { finish(skipCinemeta = true) }.padding(6.dp),
+                modifier = Modifier.clickable { finish() }.padding(6.dp),
             )
         }
         Rule()
@@ -339,27 +372,13 @@ private fun PhoneOnboarding(onDone: () -> Unit) {
                         }
                     }
 
-                    // Start fresh card
+                    // Language picker right on step 1
                     Column(
                         Modifier.fillMaxWidth().background(p.surface).border(1.dp, p.hairline).padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        Eyebrow(tr("OU DÉMARRER À ZÉRO"), color = p.textTertiary)
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                Text(tr("Installer le catalogue Cinemeta"), style = Type.label(14, FontWeight.SemiBold), color = p.textPrimary)
-                                Text(
-                                    tr("Remplit immédiatement l'Accueil avec les films et séries populaires."),
-                                    style = Type.caption(12),
-                                    color = p.textSecondary,
-                                )
-                            }
-                            Switch(
-                                checked = installCinemeta,
-                                onCheckedChange = { installCinemeta = it },
-                                colors = SwitchDefaults.colors(checkedTrackColor = p.accent, checkedThumbColor = p.onAccent),
-                            )
-                        }
+                        Eyebrow(tr("LANGUE DE L'APPLICATION"), color = p.textTertiary)
+                        OnboardingLanguageChips()
                     }
                 }
 
@@ -399,16 +418,16 @@ private fun PhoneOnboarding(onDone: () -> Unit) {
                         addonError?.let { Text(it, style = Type.caption(12), color = p.danger) }
                     }
 
-                    // Optional TMDB API key for localized movie & series metadata
+                    // TMDB API key for catalogs, hero, search & localized metadata
                     val tmdb by app.veltrio.shared.TmdbService.state.collectAsState()
                     var tmdbKey by remember { mutableStateOf("") }
                     Column(
-                        Modifier.fillMaxWidth().background(p.surface).border(1.dp, p.hairline).padding(16.dp),
+                        Modifier.fillMaxWidth().background(p.surface).border(1.dp, p.accent.copy(alpha = 0.5f)).padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        Text(tr("Résumés & titres dans votre langue (TMDB)"), style = Type.label(14, FontWeight.SemiBold), color = p.textPrimary)
+                        Text(tr("Catalogues & fiches TMDB"), style = Type.label(14, FontWeight.SemiBold), color = p.textPrimary)
                         Text(
-                            tr("Optionnel : ajoutez une clé API gratuite TMDB (themoviedb.org/settings/api) pour traduire les fiches Cinemeta. Transférée automatiquement vers votre TV."),
+                            tr("Ajoutez votre clé API gratuite TMDB (themoviedb.org/settings/api) pour les films, séries, le hero et la recherche dans votre langue. Transférée automatiquement vers votre TV."),
                             style = Type.caption(12),
                             color = p.textSecondary,
                         )
@@ -422,8 +441,8 @@ private fun PhoneOnboarding(onDone: () -> Unit) {
                         if (tmdb.connected) {
                             Text(tr("Clé TMDB connectée ✓"), style = Type.caption(12), color = p.success)
                         } else {
-                            Field(tmdbKey, { tmdbKey = it }, tr("Clé API ou jeton TMDB (optionnel)"))
-                            GhostButton(tr("Enregistrer la clé TMDB"), enabled = !tmdb.busy && tmdbKey.isNotBlank()) {
+                            Field(tmdbKey, { tmdbKey = it }, tr("Clé API ou jeton TMDB"))
+                            PrimaryButton(tr("Enregistrer la clé TMDB"), loading = tmdb.busy, enabled = tmdbKey.isNotBlank()) {
                                 scope.launch {
                                     if (app.veltrio.shared.TmdbService.connect(tmdbKey)) tmdbKey = ""
                                 }
@@ -448,9 +467,10 @@ private fun PhoneOnboarding(onDone: () -> Unit) {
                         Modifier.fillMaxWidth().background(p.surface).border(1.dp, p.hairline).padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        SummaryRow(tr("Catalogue"), if (installCinemeta || Core.isInstalled(CINEMETA_URL)) tr("Cinemeta activé") else tr("Aucun"))
+                        val tmdbReady = app.veltrio.shared.TmdbService.state.collectAsState().value.connected
+                        SummaryRow(tr("Catalogue"), if (tmdbReady) tr("TMDB activé") else tr("Aucun"))
                         Rule()
-                        SummaryRow(tr("Addons installés"), "${Core.addons.value.size + if (installCinemeta && !Core.isInstalled(CINEMETA_URL)) 1 else 0}")
+                        SummaryRow(tr("Addons installés"), "${Core.addons.value.size}")
                         Rule()
                         SummaryRow(tr("Audio / Sous-titres"), "${PlayerPrefs.current.audioLang.ifEmpty { tr("Auto") }} / ${PlayerPrefs.current.subtitleLang.ifEmpty { tr("Auto") }}")
                     }

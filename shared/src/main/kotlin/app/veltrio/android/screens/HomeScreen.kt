@@ -53,8 +53,10 @@ import app.veltrio.shared.AddonInfo
 import app.veltrio.shared.CatalogInfo
 import app.veltrio.shared.Core
 import app.veltrio.shared.PosterItem
+import app.veltrio.shared.TmdbService
 import app.veltrio.shared.WatchEntry
 import app.veltrio.shared.WatchStore
+import app.veltrio.shared.i18n.Lang
 import app.veltrio.shared.ui.Spacing
 import app.veltrio.shared.ui.Type
 import app.veltrio.shared.ui.VeltrioTheme
@@ -84,11 +86,13 @@ fun HomeScreen() {
     val p = VeltrioTheme.palette
     val addons by Core.addons.collectAsState()
     val disabled by Core.disabled.collectAsState()
+    val tmdb by TmdbService.state.collectAsState()
+    val appLang = Lang.code
     val entries by WatchStore.entries.collectAsState()
     val continueWatching = remember(entries) { WatchStore.continueWatching }
-    val rows = remember(addons, disabled) { Core.homeCatalogs().map { (a, c) -> Row(a, c) } }
+    val rows = remember(addons, disabled, tmdb.connected, tmdb.language, appLang) { Core.homeCatalogs().map { (a, c) -> Row(a, c) } }
 
-    if (Core.enabledAddons.isEmpty()) {
+    if (rows.isEmpty()) {
         EmptyHome()
         return
     }
@@ -295,25 +299,29 @@ private fun ContinueCard(entry: WatchEntry) {
     }
 }
 
-/** Nothing installed: the macOS empty state, with Cinemeta one tap away. */
+/** Nothing configured yet: invite the user to connect TMDB or pair from a phone. */
 @Composable
 private fun EmptyHome() {
     val p = VeltrioTheme.palette
     val scope = rememberCoroutineScope()
-    var busy by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
+    val tmdb by TmdbService.state.collectAsState()
+    var keyInput by remember { mutableStateOf("") }
     Column(Modifier.fillMaxSize().padding(Spacing.lg).padding(top = 60.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
         Eyebrow(tr("Bienvenue"))
         Text(tr("Une pièce calme,\nrien à l'écran."), style = Type.displaySerif(34), color = p.textPrimary)
-        Text(tr("Veltrio affiche ce que proposent les addons Stremio que vous installez. Commencez par Cinemeta, les catalogues officiels de films et de séries."), style = Type.body(14), color = p.textSecondary)
-        PrimaryButton(tr("Installer Cinemeta"), loading = busy) {
-            busy = true
-            scope.launch {
-                error = Core.installAddon(Core.suggestedAddons[0].url)
-                busy = false
+        Text(
+            tr("Connectez votre clé API TMDB gratuite pour afficher les films, les séries, les résumés et la recherche dans votre langue."),
+            style = Type.body(14),
+            color = p.textSecondary,
+        )
+        TextInput(keyInput, { keyInput = it }, tr("Clé API ou jeton TMDB…"), secret = true)
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            PrimaryButton(tr("Connecter TMDB"), loading = tmdb.busy) {
+                scope.launch { if (TmdbService.connect(keyInput)) keyInput = "" }
             }
+            GhostButton(tr("Réglages")) { Nav.settings() }
         }
-        if (error != null) Text(error!!, style = Type.caption(12), color = p.danger)
+        tmdb.error?.let { Text(it, style = Type.caption(12), color = p.danger) }
         // A TV set up with a remote is tedious: offer a phone's settings.
         if (app.veltrio.android.LocalTv.current) {
             Text(tr("Veltrio est déjà configuré sur votre téléphone ?"), style = Type.body(14), color = p.textSecondary, modifier = Modifier.padding(top = 12.dp))

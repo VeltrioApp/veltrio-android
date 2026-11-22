@@ -59,6 +59,7 @@ data class SettingsBundle(
     val mediaServers: Map<String, MediaServers.Saved> = emptyMap(),
     val watch: List<WatchEntry> = emptyList(),
     val playerPrefs: PlayerPrefs? = null,
+    val appLanguage: String? = null,
 )
 
 @Serializable
@@ -125,6 +126,7 @@ object Pairing {
             mediaServers = MediaServerKind.entries.mapNotNull { k -> MediaServers.savedOrNull(k)?.let { k.name.lowercase() to it } }.toMap(),
             watch = WatchStore.entries.value.values.toList(),
             playerPrefs = PlayerPrefs.current,
+            appLanguage = AppPrefs.current.appLanguage.takeIf { it.isNotEmpty() },
         )
     }
 
@@ -155,6 +157,7 @@ object Pairing {
         MediaServers.all.forEach { it.reload() }
         val titles = WatchStore.mergeEntries(bundle.watch)
         bundle.playerPrefs?.let { prefs -> PlayerPrefs.update { prefs } }
+        bundle.appLanguage?.let { lang -> AppPrefs.update { it.copy(appLanguage = lang) } }
         val accounts = secrets.keys.map { it.substringBefore('.') }.distinct().size
         fun count(n: Int, one: String, many: String) = if (n == 0) null else "$n ${if (n > 1) many else one}"
         return listOfNotNull(

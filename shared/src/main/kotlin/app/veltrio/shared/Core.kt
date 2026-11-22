@@ -31,11 +31,11 @@ object Core {
 
     data class Suggestion(val name: String, val url: String, val blurb: String)
 
-    val suggestedAddons = listOf(
-        Suggestion("Cinemeta", "https://v3-cinemeta.strem.io/manifest.json", tr("Les catalogues officiels de films et de séries (via TMDB).")),
-        Suggestion("OpenSubtitles v3", "https://opensubtitles-v3.strem.io/manifest.json", tr("Des sous-titres dans plus de 50 langues.")),
-        Suggestion("WatchHub", "https://watchhub.strem.io/manifest.json", tr("Des liens de streaming légaux : Apple TV, Prime, etc.")),
-    )
+    val suggestedAddons: List<Suggestion>
+        get() = listOf(
+            Suggestion("OpenSubtitles v3", "https://opensubtitles-v3.strem.io/manifest.json", tr("Des sous-titres dans plus de 50 langues.")),
+            Suggestion("WatchHub", "https://watchhub.strem.io/manifest.json", tr("Des liens de streaming légaux : Apple TV, Prime, etc.")),
+        )
 
     /** Where torrents played without debrid are kept: the core writes
      *  under $HOME/.cache/veltrio/torrents, so HOME points into the app's
@@ -121,10 +121,18 @@ object Core {
 
     private val catalogCache = mutableMapOf<String, Deferred<List<PosterItem>>>()
 
+    fun clearCatalogCache() {
+        synchronized(catalogCache) { catalogCache.clear() }
+    }
+
+    private fun isCinemeta(addon: AddonInfo): Boolean =
+        addon.transportUrl.contains("cinemeta", ignoreCase = true) || addon.id.contains("cinemeta", ignoreCase = true)
+
     /** A catalog's first page, cached for the session so going back to
      *  Home doesn't refetch every row. */
     suspend fun loadCatalog(addon: AddonInfo, catalog: CatalogInfo): List<PosterItem> {
-        val key = "${addon.transportUrl}|${catalog.type}|${catalog.id}"
+        val langTag = if (addon.id == TmdbService.ADDON_ID) "|${TmdbService.language}" else ""
+        val key = "${addon.transportUrl}|${catalog.type}|${catalog.id}$langTag"
         val task = synchronized(catalogCache) {
             catalogCache[key]?.takeUnless { it.isCompleted && it.getCompletionExceptionOrNull() != null }
                 ?: scope.async { withTimeout(20_000) { fetchCatalog(addon, catalog, emptyList()) } }.also { catalogCache[key] = it }
@@ -134,29 +142,63 @@ object Core {
 
     /** Further pages for the "See all" grid (Stremio's skip= extra). */
     suspend fun loadCatalogPage(addon: AddonInfo, catalog: CatalogInfo, skip: Int): List<PosterItem> = try {
-        withTimeout(15_000) { fetchCatalog(addon, catalog, if (skip > 0) listOf("skip=$skip") else emptyList()) }
+        withTimeout(15_000) {
+            if (addon.id == TmdbService.ADDON_ID) TmdbService.fetchCatalog(catalog.type, catalog.id, skip)
+            else fetchCatalog(addon, catalog, if (skip > 0) listOf("skip=$skip") else emptyList())
+        }
     } catch (_: Exception) {
         emptyList()
     }
 
-    private suspend fun fetchCatalog(addon: AddonInfo, catalog: CatalogInfo, extras: List<String>) =
-        client.fetchCatalog(addon.transportUrl, catalog.type, catalog.id, extras).map { PosterItem.from(it, addon) }
+    private suspend fun fetchCatalog(addon: AddonInfo, catalog: CatalogInfo, extras: List<String>): List<PosterItem> {
+        if (addon.id == TmdbService.ADDON_ID) {
+            val search = extras.firstOrNull { it.startsWith("search=") }?.removePrefix("search=")
+            return if (search != null) TmdbService.search(search, catalog.type)
+            else TmdbService.fetchCatalog(catalog.type, catalog.id, 0)
+        }
+        return client.fetchCatalog(addon.transportUrl, catalog.type, catalog.id, extras).map { PosterItem.from(it, addon) }
+    }
 
-    /** Every browsable catalog of the enabled addons, in order. */
-    fun homeCatalogs() = enabledAddons.flatMap { a -> a.catalogs.filter { it.isBrowsable }.map { a to it } }
+    /** Every browsable catalog: native TMDB catalogs first when connected,
+     *  then any non-Cinemeta enabled Stremio addons. */
+    fun homeCatalogs(): List<Pair<AddonInfo, CatalogInfo>> {
+        val tmdb = if (TmdbService.isConnected) {
+            val a = TmdbService.virtualAddon()
+            a.catalogs.filter { it.isBrowsable }.map { a to it }
+        } else emptyList()
+        val others = enabledAddons
+            .filterNot { isCinemeta(it) }
+            .flatMap { a -> a.catalogs.filter { it.isBrowsable }.map { a to it } }
+        return tmdb + others
+    }
 
     // -------------------- metadata --------------------
 
-    /** The addon to open a title's page with: the preferred one when still
-     *  installed, else the first metadata addon for the type. */
-    fun metaAddon(type: String, preferredId: String? = null) =
-        _addons.value.firstOrNull { it.id == preferredId } ?: _addons.value.firstOrNull { it.serves("meta", type) }
+    /** The addon to open a title's page with: TMDB when connected, else
+     *  the preferred addon or first metadata addon for the type. */
+    fun metaAddon(type: String, preferredId: String? = null): AddonInfo? {
+        if (preferredId == TmdbService.ADDON_ID && TmdbService.isConnected) return TmdbService.virtualAddon()
+        if (TmdbService.isConnected && (type == "movie" || type == "series")) return TmdbService.virtualAddon()
+        return _addons.value.firstOrNull { it.id == preferredId }
+            ?: _addons.value.firstOrNull { it.serves("meta", type) }
+    }
 
-    /** Tries the preferred addon, then every other enabled addon serving
-     *  metadata for the type; the first answer wins. */
+    /** Uses TMDB directly when connected (resolving IMDb IDs for stream addons),
+     *  falling back to installed Stremio metadata addons otherwise. */
     suspend fun fetchDetails(preferred: AddonInfo, type: String, id: String): TitleDetails {
-        val ordered = listOf(preferred) + enabledAddons.filter { it.id != preferred.id && it.serves("meta", type) }
         var last: Exception? = null
+        if (TmdbService.isConnected && (preferred.id == TmdbService.ADDON_ID || id.startsWith("tmdb:") || id.startsWith("tt"))) {
+            try {
+                return withTimeout(20_000) { TmdbService.fetchDetails(type, id) }
+            } catch (e: Exception) {
+                last = e
+                if (preferred.id == TmdbService.ADDON_ID || id.startsWith("tmdb:")) {
+                    throw IllegalStateException(humanize(e))
+                }
+            }
+        }
+        val ordered = (listOf(preferred) + enabledAddons.filter { it.id != preferred.id && it.serves("meta", type) })
+            .filter { it.id != TmdbService.ADDON_ID }
         for (addon in ordered) {
             try {
                 val base = TitleDetails.from(withTimeout(15_000) { client.fetchMeta(addon.transportUrl, type, id) }, addon)
@@ -279,7 +321,14 @@ object Core {
     /** One row per searchable catalog that answered with results, in addon
      *  order. 10 s per catalog. */
     suspend fun search(query: String): List<CatalogRow> {
-        val targets = enabledAddons.flatMap { a -> a.catalogs.filter { it.isSearchable }.map { a to it } }
+        val tmdbTargets = if (TmdbService.isConnected) {
+            val a = TmdbService.virtualAddon()
+            a.catalogs.filter { it.isSearchable }.map { a to it }
+        } else emptyList()
+        val addonTargets = enabledAddons
+            .filterNot { isCinemeta(it) }
+            .flatMap { a -> a.catalogs.filter { it.isSearchable }.map { a to it } }
+        val targets = tmdbTargets + addonTargets
         return targets.map { (a, c) ->
             scope.async {
                 try {
