@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -24,6 +25,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bookmark
@@ -51,6 +53,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.veltrio.android.DetailRequest
+import app.veltrio.android.LocalTv
 import app.veltrio.android.Nav
 import app.veltrio.android.ui.hero
 import app.veltrio.android.ui.Chip
@@ -204,6 +207,162 @@ fun DetailScreen(request: DetailRequest) {
             CACHED -> it.cachedOn != null
             else -> it.quality == quality
         }
+    }
+
+    if (LocalTv.current) {
+        Box(Modifier.fillMaxSize().background(p.background)) {
+            AsyncImage(d?.background ?: request.background ?: request.poster, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, alpha = 0.28f)
+            Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to p.background.copy(alpha = 0.92f), 0.5f to p.background.copy(alpha = 0.78f), 1f to p.background.copy(alpha = 0.92f))))
+            Row(Modifier.fillMaxSize()) {
+                // Left column: back, title, poster + facts, synopsis, primary actions, credits
+                Column(
+                    Modifier
+                        .weight(0.42f)
+                        .fillMaxHeight()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = Spacing.lg, vertical = Spacing.lg),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Row(
+                        Modifier.background(Color.Black.copy(alpha = 0.45f))
+                            .border(1.dp, Color.White.copy(alpha = 0.25f)).clickable { Nav.back() }.padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, null, Modifier.size(14.dp), tint = Color.White)
+                        Text(tr("RETOUR"), style = Type.eyebrow(10, 0.2f), color = Color.White)
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Box(Modifier.width(24.dp).height(1.dp).background(p.accent))
+                        Eyebrow((d?.addon ?: request.addon).name)
+                        Eyebrow("· " + Core.typeLabel(request.type), p.textTertiary)
+                    }
+                    Text(d?.name ?: request.name, style = Type.displaySerif(32), color = p.textPrimary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        Box(Modifier.width(104.dp).aspectRatio(2f / 3f).background(p.surface)) {
+                            AsyncImage(d?.poster ?: request.poster, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                        }
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Eyebrow(tr("Aperçu"), p.textTertiary)
+                            Fact(tr("Sortie"), d?.year)
+                            Fact(tr("Durée"), d?.runtime)
+                            Fact(tr("Genres"), d?.genres?.takeIf { it.isNotEmpty() }?.joinToString(", "))
+                            d?.rating?.let { Text("★ $it  IMDb", style = Type.mono(12), color = p.accentText) }
+                        }
+                    }
+                    d?.description?.takeIf { it.isNotBlank() }?.let { Text(it, style = Type.body(13), color = p.textSecondary) }
+                    if (error != null) Text(error!!, style = Type.caption(12), color = p.danger)
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        val resume = WatchStore.resumePosition(request.type, request.id) > 0
+                        val label = when {
+                            d?.isSeries == true && !showStreams -> (episode ?: d.episodes.firstOrNull { it.season == season })?.let { tr("Lire %s", it.code.replace(" · ", "")) } ?: tr("Aucun épisode")
+                            streams == null -> tr("Chargement des flux")
+                            visible.isEmpty() -> tr("Aucun flux")
+                            episode != null -> tr("Lire %s", episode!!.code.replace(" · ", ""))
+                            resume -> tr("Reprendre")
+                            else -> tr("Regarder")
+                        }
+                        val canPlay = if (d?.isSeries == true && !showStreams) d.episodes.isNotEmpty() else visible.isNotEmpty()
+                        PrimaryButton(label, Modifier.weight(1f), icon = Icons.Filled.PlayArrow, enabled = canPlay, loading = showStreams && streams == null) {
+                            if (d?.isSeries == true && !showStreams) {
+                                (episode ?: d.episodes.firstOrNull { it.season == season })?.let {
+                                    episode = it
+                                    showStreams = true
+                                    loadStreams(it.id)
+                                }
+                            } else visible.firstOrNull()?.let { play(it) }
+                        }
+                        GhostButton(
+                            if (saved) tr("Enregistré") else tr("Enregistrer"), icon = if (saved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
+                            color = if (saved) p.accentText else p.textPrimary,
+                        ) {
+                            WatchStore.toggleLibrary(request.type, request.id, d?.name ?: request.name, d?.poster ?: request.poster, d?.background ?: request.background, d?.addon ?: request.addon)
+                        }
+                    }
+                    if (d != null && (d.cast.isNotEmpty() || d.director.isNotEmpty())) {
+                        Column(Modifier.padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Box(Modifier.fillMaxWidth().height(1.dp).background(p.hairline))
+                            Eyebrow(tr("Générique"), p.textTertiary)
+                            Fact(tr("Réalisation"), d.director.take(3).joinToString(", ").ifEmpty { null })
+                            Fact(tr("Scénario"), d.writer.take(3).joinToString(", ").ifEmpty { null })
+                            Fact(tr("Distribution"), d.cast.take(6).joinToString(", ").ifEmpty { null })
+                        }
+                    }
+                }
+
+                // Right column: episodes (for series) or streams list
+                LazyColumn(
+                    Modifier.weight(0.58f).fillMaxHeight(),
+                    contentPadding = PaddingValues(top = Spacing.lg, bottom = Spacing.xl, end = Spacing.md),
+                ) {
+                    if (d?.isSeries == true && !showStreams) {
+                        item {
+                            Column(Modifier.padding(start = Spacing.lg, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    Eyebrow(tr("Épisodes"))
+                                    Eyebrow(tr("%s · %s au total", d.episodes.count { it.season == season }, d.episodes.size), p.textTertiary)
+                                }
+                                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    d.episodes.map { it.season }.distinct().forEach { s ->
+                                        Chip(if (s == null || s == 0) tr("Bonus") else tr("Saison %s", s), s == season) { season = s }
+                                    }
+                                    Spacer(Modifier.width(Spacing.lg))
+                                }
+                            }
+                        }
+                        items(d.episodes.filter { it.season == season }, key = { it.id }) { ep ->
+                            EpisodeRow(request, ep) {
+                                episode = ep
+                                showStreams = true
+                                loadStreams(ep.id)
+                            }
+                        }
+                    }
+                    if (showStreams) {
+                        item {
+                            Column(Modifier.padding(start = Spacing.lg, end = Spacing.lg, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                if (d?.isSeries == true && episode != null) {
+                                    Row(
+                                        Modifier.clickable { showStreams = false; loadJob?.cancel() },
+                                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    ) {
+                                        Icon(Icons.AutoMirrored.Filled.ArrowBack, null, Modifier.size(12.dp), tint = p.textPrimary)
+                                        Text(tr("ÉPISODES"), style = Type.eyebrow(10, 0.2f), color = p.textPrimary)
+                                    }
+                                    Text("${episode!!.code} — ${episode!!.title}", style = Type.title(20), color = p.textPrimary)
+                                }
+                                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    Eyebrow(tr("Flux"))
+                                    if (streams != null) Eyebrow(tr("%s sur %s", visible.size, streams!!.size), p.textTertiary)
+                                }
+                                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    val filters = if (DebridService.anyConnected) listOf(tr("Tout"), CACHED) + qualities.drop(1) else qualities
+                                    filters.forEach { q -> Chip(q, q == quality) { quality = q } }
+                                    streams.orEmpty().map { it.addonName }.distinct().takeIf { it.size > 1 }?.forEach { name ->
+                                        Chip(name, name == source) { source = if (source == name) null else name }
+                                    }
+                                }
+                            }
+                        }
+                        when {
+                            streams == null -> item { LoadingRow() }
+                            visible.isEmpty() -> item {
+                                Text(
+                                    if (streams!!.isEmpty()) {
+                                        if (Core.enabledAddons.any { it.serves("stream", request.type) }) tr("Aucune source n'a répondu avec un flux pour ce titre.")
+                                        else tr("Aucune source installée ne fournit de flux. Ajoutez-en une dans Sources.")
+                                    } else tr("Aucun flux ne correspond à ces filtres."),
+                                    style = Type.body(13), color = p.textSecondary, modifier = Modifier.padding(Spacing.lg),
+                                )
+                            }
+                            else -> items(visible) { stream ->
+                                StreamRow(stream, onDownload = null) { play(stream) }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return
     }
 
     LazyColumn(Modifier.fillMaxSize().background(p.background), contentPadding = PaddingValues(bottom = Spacing.xl)) {
