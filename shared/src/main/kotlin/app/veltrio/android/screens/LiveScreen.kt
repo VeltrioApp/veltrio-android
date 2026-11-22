@@ -1,6 +1,7 @@
 package app.veltrio.android.screens
 
 import app.veltrio.shared.i18n.tr
+import android.view.SurfaceView
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -10,6 +11,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -32,15 +34,18 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -58,8 +63,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
+import app.veltrio.android.LocalTv
 import app.veltrio.android.Nav
+import app.veltrio.shared.PlayerPrefs
+import app.veltrio.shared.player.MpvPlayer
 import app.veltrio.android.ui.Chip
 import app.veltrio.android.ui.Eyebrow
 import app.veltrio.android.ui.GhostButton
@@ -146,11 +155,113 @@ private fun PlaylistView(playlist: PlaylistRef, playlists: List<PlaylistRef>, on
         }
     }
 
+    val tv = LocalTv.current
+    val context = LocalContext.current
     val all = items.orEmpty()
     val groups = remember(all) { all.groupBy { it.group }.map { it.key to it.value.size } }
     val text = filter.trim()
     val visible = all.filter { (group == null || it.group == group) && (text.isEmpty() || XtreamClient.titleMatches(it.name, text)) }
     val current = selected?.takeIf { s -> visible.any { it.id == s.id } } ?: visible.firstOrNull()
+
+    // On TV live list: split-screen with embedded live mini-player on the left
+    // and scrollable channel list on the right. 1st click plays in the left
+    // preview; 2nd click on the same channel opens full screen.
+    var previewChannel by remember(playlist.id) { mutableStateOf<ChannelItem?>(null) }
+    var previewPlayer by remember { mutableStateOf<MpvPlayer?>(null) }
+
+    fun releasePreview() {
+        previewPlayer?.release()
+        previewPlayer = null
+        previewChannel = null
+    }
+
+    fun openFullScreen(c: ChannelItem) {
+        releasePreview()
+        Nav.play(PlayRequest.forChannel(c, playlist))
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { releasePreview() }
+    }
+
+    LaunchedEffect(tv, kind, guide) {
+        if (!tv || kind != ChannelKind.Live || guide) releasePreview()
+    }
+
+    if (tv && kind == ChannelKind.Live && !guide && items != null && error == null && visible.isNotEmpty()) {
+        val active = previewChannel ?: current
+        Row(Modifier.fillMaxSize()) {
+            // Left column: embedded live mini-player + EPG + Fullscreen CTA
+            Column(
+                Modifier
+                    .weight(0.45f)
+                    .fillMaxHeight()
+                    .background(p.backgroundAlt)
+                    .padding(horizontal = Spacing.md, vertical = Spacing.md),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                if (active != null) {
+                    TvLivePreviewPane(
+                        playlist = playlist,
+                        channel = active,
+                        playing = previewChannel?.id == active.id,
+                        player = previewPlayer,
+                        now = now,
+                        onOpenFullScreen = { openFullScreen(active) },
+                    )
+                }
+            }
+
+            // Right column: compact header + scrollable channels
+            LazyColumn(
+                Modifier.weight(0.55f).fillMaxHeight(),
+                contentPadding = PaddingValues(bottom = Spacing.xl),
+            ) {
+                item {
+                    Column(Modifier.padding(start = Spacing.md, end = Spacing.lg, top = Spacing.md, bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            PlaylistPicker(playlist, playlists, Modifier.weight(1f))
+                            Box(Modifier.size(38.dp).clickable { reload++ }, contentAlignment = Alignment.Center) {
+                                Icon(Icons.Filled.Refresh, tr("Actualiser"), tint = p.textSecondary)
+                            }
+                            Box(Modifier.size(38.dp).clickable(onClick = onAdd), contentAlignment = Alignment.Center) {
+                                Icon(Icons.Filled.Add, tr("Ajouter une source"), tint = p.textSecondary)
+                            }
+                        }
+                        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (playlist.isXtream) {
+                                listOf(tr("TV en direct") to ChannelKind.Live, tr("Films") to ChannelKind.Movie, tr("Séries") to ChannelKind.Series).forEach { (label, k) ->
+                                    Chip(label, k == kind) { kind = k }
+                                }
+                                Spacer(Modifier.width(6.dp))
+                            }
+                            Chip(tr("Liste"), !guide) { guide = false }
+                            Chip(tr("Guide TV"), guide) { guide = true }
+                        }
+                        Picker(tr("Bouquet"), listOf(null to "${tr("Tous les bouquets")}  (${all.size})") + groups.map { (g, n) -> g to "$g  ($n)" }, group) { group = it }
+                        TextInput(filter, { filter = it }, tr("Rechercher une chaîne"))
+                    }
+                }
+                items(visible, key = { it.id }) { c ->
+                    key(guideVersion) {
+                        val isPlayingHere = previewChannel?.id == c.id
+                        ChannelRow(c, isPlayingHere || c.id == active?.id, now) {
+                            if (isPlayingHere) {
+                                openFullScreen(c)
+                            } else {
+                                selected = c
+                                previewChannel = c
+                                val mpv = previewPlayer ?: MpvPlayer(context).also { previewPlayer = it }
+                                PlayerPrefs.current.let { mpv.applyProfile(it.profile, it.toneMapping) }
+                                PlayRequest.forChannel(c, playlist).url?.let { mpv.load(it, 0.0) }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return
+    }
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = Spacing.xl)) {
         item {
@@ -201,11 +312,127 @@ private fun PlaylistView(playlist: PlaylistRef, playlists: List<PlaylistRef>, on
             else -> {
                 if (current != null) item(key = "hero-${current.id}-$guideVersion-$now") { ChannelHero(playlist, current, now) }
                 items(visible, key = { it.id }) { c ->
-                    key(guideVersion) { ChannelRow(c, c.id == current?.id, now) { selected = c } }
+                    key(guideVersion) {
+                        ChannelRow(c, c.id == current?.id, now) {
+                            if (c.id == current?.id) Nav.play(PlayRequest.forChannel(c, playlist))
+                            else selected = c
+                        }
+                    }
                 }
             }
         }
     }
+}
+
+/** Left-pane live mini-player + EPG for Android TV split-screen live TV. */
+@Composable
+private fun ColumnScope.TvLivePreviewPane(
+    playlist: PlaylistRef,
+    channel: ChannelItem,
+    playing: Boolean,
+    player: MpvPlayer?,
+    now: Instant,
+    onOpenFullScreen: () -> Unit,
+) {
+    val p = VeltrioTheme.palette
+    var shortEpg by remember(channel.id) { mutableStateOf<List<XtreamProgramme>?>(null) }
+    var replay by remember(channel.id) { mutableStateOf(false) }
+    val programme = EpgStore.current(channel, now)
+    val account = playlist.xtream
+    LaunchedEffect(channel.id) {
+        if (programme == null && account != null && channel.xtreamId != null) {
+            shortEpg = XtreamClient.shortEpg(account, channel.xtreamId!!)
+        }
+    }
+    val nowTitle: String?
+    val nowTime: String?
+    val progress: Float
+    val upcoming: List<Pair<String, String>>
+    if (programme != null) {
+        nowTitle = programme.title; nowTime = programme.timeRange; progress = programme.progressAt(now)
+        upcoming = EpgStore.upcoming(channel, now).take(3).map { it.start.hm() to it.title }
+    } else {
+        val s = shortEpg.orEmpty().firstOrNull { it.start <= now && now < it.end }
+        nowTitle = s?.title; nowTime = s?.let { "${it.start.hm()} – ${it.end.hm()}" }
+        progress = s?.let { ((now.epochSecond - it.start.epochSecond).toFloat() / (it.end.epochSecond - it.start.epochSecond)).coerceIn(0f, 1f) } ?: 0f
+        upcoming = shortEpg.orEmpty().filter { it.start > now }.take(3).map { it.start.hm() to it.title }
+    }
+
+    // 16:9 mini-player surface (clicking opens fullscreen)
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .aspectRatio(16f / 9f)
+            .background(Color.Black)
+            .border(1.dp, if (playing) p.accent else p.border)
+            .clickable(onClick = onOpenFullScreen),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (playing && player != null) {
+            val state by player.state.collectAsState()
+            AndroidView(
+                factory = { SurfaceView(it).apply { holder.addCallback(player) } },
+                modifier = Modifier.fillMaxSize(),
+            )
+            if (!state.loaded || state.buffering) {
+                CircularProgressIndicator(Modifier.size(28.dp), color = p.accent, strokeWidth = 2.5.dp)
+            }
+            Box(
+                Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(8.dp)
+                    .background(Color.Black.copy(alpha = 0.72f))
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+            ) {
+                Text(tr("OK · PLEIN ÉCRAN"), style = Type.mono(9, FontWeight.Bold), color = p.accentText)
+            }
+        } else {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                AsyncImage(channel.logo, null, Modifier.size(width = 88.dp, height = 56.dp), contentScale = ContentScale.Fit)
+                Text(tr("Sélectionnez une chaîne pour prévisualiser"), style = Type.caption(11), color = p.textTertiary)
+            }
+        }
+    }
+
+    // Channel info + EPG
+    Column(
+        Modifier.weight(1f).verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Box(Modifier.size(width = 52.dp, height = 36.dp).background(p.surfaceElevated), contentAlignment = Alignment.Center) {
+                AsyncImage(channel.logo, null, Modifier.fillMaxSize().padding(4.dp), contentScale = ContentScale.Fit)
+            }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(tr("● EN DIRECT"), style = Type.eyebrow(9, 0.18f), color = p.danger)
+                Text(channel.name, style = Type.title(17), color = p.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        if (nowTitle != null) {
+            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Row { Eyebrow(tr("En ce moment"), modifier = Modifier.weight(1f)); Text(nowTime ?: "", style = Type.mono(10), color = p.textTertiary) }
+                Text(nowTitle, style = Type.label(14, FontWeight.SemiBold), color = p.textPrimary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Box(Modifier.fillMaxWidth().height(3.dp).background(p.hairline)) { Box(Modifier.fillMaxWidth(progress).fillMaxHeight().background(p.accent)) }
+            }
+        }
+        if (upcoming.isNotEmpty()) {
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Eyebrow(tr("À suivre"), p.textTertiary)
+                upcoming.forEach { (time, title) ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(time, style = Type.mono(10, FontWeight.SemiBold), color = p.accentText, modifier = Modifier.width(38.dp))
+                        Text(title, style = Type.caption(12), color = p.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
+        }
+    }
+
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        PrimaryButton(tr("Plein écran"), Modifier.weight(1f), icon = Icons.Filled.Fullscreen, onClick = onOpenFullScreen)
+        if (channel.hasCatchup && account != null) GhostButton(tr("Revoir"), icon = Icons.Filled.History) { replay = true }
+    }
+    if (replay && account != null) CatchupDialog(playlist, channel) { replay = false }
 }
 
 @Composable
