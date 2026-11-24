@@ -196,14 +196,16 @@ object TmdbService {
             .mapNotNull { parsePoster(it, if (isSeries) "series" else "movie", genres, addon) }
     }
 
+    data class DiscoverProvider(val id: Int, val name: String, val logoUrl: String)
+
     /** Popular streaming providers and quick genres for the Discover bar. */
-    val discoverProviders: List<Pair<Int, String>> = listOf(
-        8 to "Netflix",
-        350 to "Apple TV+",
-        337 to "Disney+",
-        119 to "Prime Video",
-        1899 to "Max",
-        381 to "Canal+",
+    val discoverProviders: List<DiscoverProvider> = listOf(
+        DiscoverProvider(8, "Netflix", "https://image.tmdb.org/t/p/w154/pbpMk2JmcoNnQwx5JGpXngfoWtp.jpg"),
+        DiscoverProvider(350, "Apple TV+", "https://image.tmdb.org/t/p/w154/2E03IAZsX4ZaUqM7tXlctEPMGWS.jpg"),
+        DiscoverProvider(337, "Disney+", "https://image.tmdb.org/t/p/w154/97yvRBw1GzX7fXprcF80er19ot.jpg"),
+        DiscoverProvider(119, "Prime Video", "https://image.tmdb.org/t/p/w154/pvske1MyAoymrs5bguRfVqYiM9a.jpg"),
+        DiscoverProvider(1899, "Max", "https://image.tmdb.org/t/p/w154/jbe4gVSfRlbPTdESXhEKpornsfu.jpg"),
+        DiscoverProvider(381, "Canal+", "https://image.tmdb.org/t/p/w154/eBXzkFEupZjKaIKY7zBUaSdCY8I.jpg"),
     )
 
     data class DiscoverGenre(val movieId: Int, val tvId: Int, private val labelKey: String) {

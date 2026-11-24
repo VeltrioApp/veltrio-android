@@ -253,15 +253,45 @@ private fun DiscoverSection(onFocused: ((PosterItem) -> Unit)? = null) {
     }
 
     Column(Modifier.padding(top = Spacing.md), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        // Streaming provider logo cards
+        LazyRow(contentPadding = PaddingValues(horizontal = Spacing.lg), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            items(TmdbService.discoverProviders, key = { "prov-${it.id}" }) { prov ->
+                val selected = selectedProvider == prov.id
+                Row(
+                    Modifier
+                        .background(
+                            if (selected) p.accent.copy(alpha = 0.16f) else p.surface,
+                            androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                        )
+                        .clickable { selectedProvider = if (selected) null else prov.id }
+                        .padding(start = 6.dp, end = 14.dp, top = 6.dp, bottom = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    AsyncImage(
+                        model = prov.logoUrl,
+                        contentDescription = prov.name,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .width(38.dp)
+                            .height(38.dp)
+                            .background(p.backgroundAlt, androidx.compose.foundation.shape.RoundedCornerShape(8.dp)),
+                    )
+                    Text(
+                        prov.name,
+                        style = Type.label(13, if (selected) androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.SemiBold),
+                        color = if (selected) p.accentText else p.textPrimary,
+                        maxLines = 1,
+                    )
+                }
+            }
+        }
         LazyRow(contentPadding = PaddingValues(horizontal = Spacing.lg), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             item {
                 Chip(tr("Films"), mediaType == "movie") { mediaType = "movie" }
             }
             item {
                 Chip(tr("Séries"), mediaType == "series") { mediaType = "series" }
-            }
-            items(TmdbService.discoverProviders, key = { "prov-${it.first}" }) { (id, name) ->
-                Chip(name, selectedProvider == id) { selectedProvider = if (selectedProvider == id) null else id }
             }
             items(TmdbService.discoverGenres, key = { "gen-${it.movieId}" }) { g ->
                 Chip(g.label, selectedGenre == g) { selectedGenre = if (selectedGenre == g) null else g }
