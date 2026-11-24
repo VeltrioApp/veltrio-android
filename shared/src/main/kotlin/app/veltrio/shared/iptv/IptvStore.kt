@@ -214,11 +214,15 @@ object IptvStore {
     /** Live channels of every playlist whose name matches, then the films and
      *  series of each Xtream account, searched on the provider's server. */
     suspend fun search(query: String): List<Pair<PlaylistRef, ChannelItem>> = coroutineScope {
+        val kids = app.veltrio.shared.AppPrefs.current.kidsMode
         _playlists.value.map { p ->
             async {
                 try {
-                    val live = items(p).filter { XtreamClient.titleMatches(it.name, query) }.take(40)
+                    val live = items(p)
+                        .filter { (!kids || !app.veltrio.shared.AppPrefs.isAdultIptvGroup(it.group)) && XtreamClient.titleMatches(it.name, query) }
+                        .take(40)
                     val vod = p.xtream?.let { XtreamClient.search(it, query) }.orEmpty()
+                        .filter { !kids || !app.veltrio.shared.AppPrefs.isAdultIptvGroup(it.group) }
                     (live + vod).map { p to it }
                 } catch (_: Exception) {
                     // An unreachable source just doesn't contribute.

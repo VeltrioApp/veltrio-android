@@ -197,7 +197,7 @@ object StremioAccount : AccountService() {
         throw ServiceException(
             when (val message = json["error"].str("message")) {
                 null -> tr("Stremio a refusé la demande.")
-                tr("Wrong passphrase"), tr("User not found") -> tr("E-mail ou mot de passe incorrect.")
+                "Wrong passphrase", "User not found" -> tr("E-mail ou mot de passe incorrect.")
                 else -> tr("Stremio : %s", message)
             },
         )

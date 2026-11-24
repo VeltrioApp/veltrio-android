@@ -81,7 +81,7 @@ import coil3.compose.AsyncImage
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
-private val qualities = listOf(tr("Tout"), "4K", "1080p", "720p")
+private val qualities get() = listOf(tr("Tout"), "4K", "1080p", "720p")
 private val CACHED get() = tr("⚡ En cache")
 
 /** A title's page, as macOS's DetailView on a phone's width: the backdrop,
@@ -102,7 +102,9 @@ fun DetailScreen(request: DetailRequest) {
     var source by remember { mutableStateOf<String?>(null) }
     var loadJob by remember { mutableStateOf<Job?>(null) }
     val entries by WatchStore.entries.collectAsState()
-    val saved = entries["${request.type}|${request.id}"]?.inLibrary == true
+    val watchId = details?.id ?: request.id
+    val saved = entries["${request.type}|$watchId"]?.inLibrary == true
+        || (watchId != request.id && entries["${request.type}|${request.id}"]?.inLibrary == true)
 
     fun loadStreams(id: String) {
         loadJob?.cancel()
@@ -140,7 +142,8 @@ fun DetailScreen(request: DetailRequest) {
             details = d
             if (d.isSeries) {
                 // Resume where the user was, else the first season.
-                val lastId = WatchStore.entry(request.type, request.id)?.lastEpisodeId
+                val lastId = WatchStore.entry(request.type, d.id)?.lastEpisodeId
+                    ?: WatchStore.entry(request.type, request.id)?.lastEpisodeId
                 episode = d.episodes.firstOrNull { it.id == lastId }
                 season = episode?.season ?: d.episodes.firstOrNull { (it.season ?: 0) > 0 }?.season ?: d.episodes.first().season
             } else {
@@ -262,7 +265,7 @@ fun DetailScreen(request: DetailRequest) {
                     d?.description?.takeIf { it.isNotBlank() }?.let { Text(it, style = Type.body(13), color = p.textSecondary) }
                     if (error != null) Text(error!!, style = Type.caption(12), color = p.danger)
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        val resume = WatchStore.resumePosition(request.type, request.id) > 0
+                        val resume = WatchStore.resumePosition(request.type, watchId) > 0
                         val label = when {
                             d?.isSeries == true && !showStreams -> (episode ?: d.episodes.firstOrNull { it.season == season })?.let { tr("Lire %s", it.code.replace(" · ", "")) } ?: tr("Aucun épisode")
                             streams == null -> tr("Chargement des flux")
@@ -285,7 +288,7 @@ fun DetailScreen(request: DetailRequest) {
                             if (saved) tr("Enregistré") else tr("Enregistrer"), icon = if (saved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
                             color = if (saved) p.accentText else p.textPrimary,
                         ) {
-                            WatchStore.toggleLibrary(request.type, request.id, d?.name ?: request.name, d?.poster ?: request.poster, d?.background ?: request.background, d?.addon ?: request.addon)
+                            WatchStore.toggleLibrary(request.type, watchId, d?.name ?: request.name, d?.poster ?: request.poster, d?.background ?: request.background, d?.addon ?: request.addon)
                         }
                     }
                     d?.trailerUrl?.let { url ->
@@ -432,7 +435,7 @@ fun DetailScreen(request: DetailRequest) {
                 d?.description?.takeIf { it.isNotBlank() }?.let { Text(it, style = Type.body(14), color = p.textSecondary) }
                 if (error != null) Text(error!!, style = Type.caption(12), color = p.danger)
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    val resume = WatchStore.resumePosition(request.type, request.id) > 0
+                    val resume = WatchStore.resumePosition(request.type, watchId) > 0
                     val label = when {
                         d?.isSeries == true && !showStreams -> (episode ?: d.episodes.firstOrNull { it.season == season })?.let { tr("Lire %s", it.code.replace(" · ", "")) } ?: tr("Aucun épisode")
                         streams == null -> tr("Chargement des flux")
@@ -455,7 +458,7 @@ fun DetailScreen(request: DetailRequest) {
                         if (saved) tr("Enregistré") else tr("Enregistrer"), icon = if (saved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
                         color = if (saved) p.accentText else p.textPrimary,
                     ) {
-                        WatchStore.toggleLibrary(request.type, request.id, d?.name ?: request.name, d?.poster ?: request.poster, d?.background ?: request.background, d?.addon ?: request.addon)
+                        WatchStore.toggleLibrary(request.type, watchId, d?.name ?: request.name, d?.poster ?: request.poster, d?.background ?: request.background, d?.addon ?: request.addon)
                     }
                 }
                 d?.trailerUrl?.let { url ->
@@ -641,7 +644,9 @@ private fun Fact(label: String, value: String?) {
 @Composable
 private fun EpisodeRow(request: DetailRequest, ep: EpisodeItem, onClick: () -> Unit) {
     val p = VeltrioTheme.palette
-    val progress = WatchStore.episode(request.type, request.id, ep.id)
+    val epContentId = ep.id.substringBefore(':').takeIf { it.startsWith("tt") } ?: request.id
+    val progress = WatchStore.episode(request.type, epContentId, ep.id)
+        ?: WatchStore.episode(request.type, request.id, ep.id)
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = Spacing.lg, vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(14.dp),

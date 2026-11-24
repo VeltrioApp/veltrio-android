@@ -502,5 +502,13 @@ internal object English {
         "Saisissez 4 chiffres." to "Enter 4 digits.",
         "Passer le récap" to "Skip recap",
         "Prochain épisode" to "Next episode",
+        "Retirer" to "Remove",
+        "OK · PLEIN ÉCRAN" to "OK · FULLSCREEN",
+        "Sélectionnez une chaîne pour prévisualiser" to "Select a channel to preview",
+        "Plein écran" to "Fullscreen",
+        "Mettre à jour" to "Update",
+        "Plus tard" to "Later",
+        "Continuer" to "Continue",
+        "Commencer à regarder" to "Start watching",
     )
 }

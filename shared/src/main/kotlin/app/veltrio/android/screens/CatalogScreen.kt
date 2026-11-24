@@ -46,19 +46,28 @@ fun CatalogScreen(request: CatalogRequest) {
     val p = VeltrioTheme.palette
     var items by remember { mutableStateOf<List<PosterItem>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
     var exhausted by remember { mutableStateOf(false) }
     val grid = rememberLazyGridState()
     val nearEnd by remember { derivedStateOf { grid.layoutInfo.visibleItemsInfo.lastOrNull()?.index?.let { it >= items.size - 6 } ?: false } }
 
     LaunchedEffect(Unit) {
-        items = Core.loadCatalog(request.addon, request.catalog)
+        try {
+            items = Core.loadCatalog(request.addon, request.catalog)
+        } catch (e: Exception) {
+            error = Core.humanize(e)
+        }
         loading = false
     }
     LaunchedEffect(nearEnd, items.size) {
         if (!nearEnd || loading || exhausted || items.isEmpty()) return@LaunchedEffect
         loading = true
-        val page = Core.loadCatalogPage(request.addon, request.catalog, items.size).filter { n -> items.none { it.id == n.id } }
-        if (page.isEmpty()) exhausted = true else items = items + page
+        try {
+            val page = Core.loadCatalogPage(request.addon, request.catalog, items.size).filter { n -> items.none { it.id == n.id } }
+            if (page.isEmpty()) exhausted = true else items = items + page
+        } catch (_: Exception) {
+            exhausted = true
+        }
         loading = false
     }
     Column(Modifier.fillMaxSize().background(p.background).statusBarsPadding()) {

@@ -198,12 +198,20 @@ private fun PlaylistView(playlist: PlaylistRef, playlists: List<PlaylistRef>, on
         Nav.play(PlayRequest.forChannel(c, playlist))
     }
 
-    DisposableEffect(Unit) {
-        onDispose { releasePreview() }
+    val lifecycle = androidx.compose.ui.platform.LocalLifecycleOwner.current.lifecycle
+    DisposableEffect(lifecycle) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_STOP) releasePreview()
+        }
+        lifecycle.addObserver(observer)
+        onDispose {
+            lifecycle.removeObserver(observer)
+            releasePreview()
+        }
     }
 
-    LaunchedEffect(tv, kind, guide) {
-        if (!tv || kind != ChannelKind.Live || guide) releasePreview()
+    LaunchedEffect(tv, kind, guide, visible.isEmpty()) {
+        if (!tv || kind != ChannelKind.Live || guide || visible.isEmpty()) releasePreview()
     }
 
     if (tv && kind == ChannelKind.Live && !guide && items != null && error == null && visible.isNotEmpty()) {
@@ -419,7 +427,7 @@ private fun ColumnScope.TvLivePreviewPane(
                     .background(Color.Black.copy(alpha = 0.72f))
                     .padding(horizontal = 8.dp, vertical = 4.dp),
             ) {
-                Text(tr("OK · PLEIN ÉCRAN"), style = Type.mono(9, FontWeight.Bold), color = p.accentText)
+                Text(tr("OK · PLEIN ÉCRAN"), style = Type.mono(9, FontWeight.Bold), color = p.accent)
             }
         } else {
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {

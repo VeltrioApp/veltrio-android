@@ -55,7 +55,10 @@ object SubtitleFetcher {
         for (code in preferred) {
             val synonyms = PlayerPrefs.synonyms(code)
             subtitles.firstOrNull { (it.lang ?: "").lowercase() in synonyms }?.let { return it }
-            subtitles.firstOrNull { s -> synonyms.any { (s.lang ?: "").lowercase().startsWith(it) } }?.let { return it }
+            subtitles.firstOrNull { s ->
+                val l = (s.lang ?: "").lowercase()
+                synonyms.any { l.startsWith("$it-") || l.startsWith("${it}_") }
+            }?.let { return it }
         }
         return null
     }

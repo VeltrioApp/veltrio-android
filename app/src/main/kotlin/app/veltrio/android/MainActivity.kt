@@ -63,7 +63,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        if (Nav.isInPlayer && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        if (Nav.isInPlayer && Nav.canEnterPip && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             runCatching {
                 enterPictureInPictureMode(
                     PictureInPictureParams.Builder()
@@ -86,7 +86,7 @@ private data class TabItem(
     val selectedIcon: ImageVector,
 )
 
-private val tabs = listOf(
+private val tabs get() = listOf(
     TabItem(tr("Accueil"), Icons.Outlined.Home, Icons.Filled.Home),
     TabItem(tr("Collection"), Icons.Outlined.Bookmarks, Icons.Filled.Bookmarks),
     TabItem(tr("Direct"), Icons.Outlined.LiveTv, Icons.Filled.LiveTv),

@@ -28,8 +28,11 @@ object Nav {
     /** Parental control (Kids Mode), toggled live from Settings. */
     var kidsMode by androidx.compose.runtime.mutableStateOf(app.veltrio.shared.AppPrefs.current.kidsMode)
 
-    /** True while PlayerScreen is mounted (enables auto-PiP on home gesture). */
+    /** True while PlayerScreen is mounted. */
     var isInPlayer by androidx.compose.runtime.mutableStateOf(false)
+
+    /** True when active playback is eligible for auto-PiP on home gesture. */
+    var canEnterPip by androidx.compose.runtime.mutableStateOf(false)
 
     /** True while the Activity is in Android Picture-in-Picture mode. */
     var inPipMode by androidx.compose.runtime.mutableStateOf(false)

@@ -164,15 +164,12 @@ fun PlayerScreen(request: PlayRequest) {
         val s = request.season
         val ep = request.episode
         if (cid != null && cid.startsWith("tt") && s != null && ep != null) {
-            introSegments = app.veltrio.shared.IntroService.fetchSegments(cid, s, ep)
+            introSegments = runCatching { app.veltrio.shared.IntroService.fetchSegments(cid, s, ep) }.getOrNull()
         }
     }
     DisposableEffect(Unit) {
-        Nav.isInPlayer = true
         ChromecastService.startDiscovery(context)
         onDispose {
-            Nav.isInPlayer = false
-            Nav.inPipMode = false
             ChromecastService.stopDiscovery()
         }
     }
@@ -368,17 +365,22 @@ fun PlayerScreen(request: PlayRequest) {
         }
 
         val error = resolveError ?: if (state.failed) tr("Le flux n'a pas pu être lu. Il est peut-être hors ligne, ou dans un format que ce lecteur ne prend pas en charge.") else null
-        when {
-            error != null -> ErrorState(error, onRetry = { attempt++ }, onBack = { Nav.back() })
-            resolving || !state.loaded || state.buffering -> Loading(
-                when {
-                    resolving && request.stream?.infoHash != null && request.stream?.cachedOn == null -> tr("Connexion aux pairs…")
-                    resolving -> tr("Résolution du flux…")
-                    !state.loaded -> tr("Ouverture…")
-                    else -> tr("Mise en mémoire tampon…")
-                },
-                request.title,
-            )
+        LaunchedEffect(state.loaded, state.paused, endOverlay, error) {
+            Nav.canEnterPip = state.loaded && !state.paused && !endOverlay && error == null
+        }
+        if (!Nav.inPipMode) {
+            when {
+                error != null -> ErrorState(error, onRetry = { attempt++ }, onBack = { Nav.back() })
+                resolving || !state.loaded || state.buffering -> Loading(
+                    when {
+                        resolving && request.stream?.infoHash != null && request.stream?.cachedOn == null -> tr("Connexion aux pairs…")
+                        resolving -> tr("Résolution du flux…")
+                        !state.loaded -> tr("Ouverture…")
+                        else -> tr("Mise en mémoire tampon…")
+                    },
+                    request.title,
+                )
+            }
         }
 
         val pipAvailable = !app.veltrio.android.LocalTv.current && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
@@ -418,7 +420,7 @@ fun PlayerScreen(request: PlayRequest) {
             }
         }
 
-        panel?.let { current ->
+        if (!Nav.inPipMode) panel?.let { current ->
             val panelFocus = remember(current) { FocusRequester() }
             LaunchedEffect(current) {
                 delay(60)
@@ -565,6 +567,7 @@ fun PlayerScreen(request: PlayRequest) {
                     AutoFillSkipPill(
                         key = "$segKey-${segEnd.toInt()}",
                         label = segLabel,
+                        paused = state.paused || panel != null,
                         onTrigger = { player.seek(segEnd) },
                         onDismiss = { dismissedSegments = dismissedSegments + segKey },
                     )
@@ -574,6 +577,7 @@ fun PlayerScreen(request: PlayRequest) {
                     AutoFillSkipPill(
                         key = "outro-${request.nextLabel ?: "next"}",
                         label = tr("Prochain épisode") + (request.nextLabel?.let { " · $it" } ?: ""),
+                        paused = state.paused || panel != null,
                         onTrigger = {
                             scope.launch {
                                 val nextReq = runCatching { request.next?.invoke() }.getOrNull()
@@ -590,7 +594,7 @@ fun PlayerScreen(request: PlayRequest) {
             CatchupDialog(request.playlist!!, request.channel!!, onPlay = { Nav.zap(it) }) { replay = false }
         }
 
-        if (endOverlay) {
+        if (endOverlay && !Nav.inPipMode) {
             EndOfEpisode(
                 request,
                 onStay = { endOverlay = false },
@@ -860,7 +864,7 @@ private fun SidePanel(
         modifier.fillMaxHeight().width(320.dp).background(Color(0xF0101010)).safeDrawingPadding().padding(vertical = 18.dp),
     ) {
         Row(Modifier.padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(title.uppercase(), style = Type.eyebrow(10, 0.24f), color = p.accentText, modifier = Modifier.weight(1f))
+            Text(title.uppercase(), style = Type.eyebrow(10, 0.24f), color = p.accent, modifier = Modifier.weight(1f))
             Icon(Icons.Filled.Close, tr("Fermer"), closeModifier.size(22.dp).clickable(onClick = onClose), tint = Color.White)
         }
         Spacer(Modifier.height(10.dp))
@@ -1116,6 +1120,7 @@ private fun CastOverlay(state: ChromecastService.State, onStop: () -> Unit) {
 private fun AutoFillSkipPill(
     key: String,
     label: String,
+    paused: Boolean = false,
     durationMs: Int = 5000,
     onTrigger: () -> Unit,
     onDismiss: () -> Unit,
@@ -1124,27 +1129,30 @@ private fun AutoFillSkipPill(
     val progress = remember(key) { androidx.compose.animation.core.Animatable(0f) }
     var triggered by remember(key) { mutableStateOf(false) }
 
-    LaunchedEffect(key) {
-        progress.snapTo(0f)
-        triggered = false
-        progress.animateTo(
-            targetValue = 1f,
-            animationSpec = androidx.compose.animation.core.tween(
-                durationMillis = durationMs,
-                easing = androidx.compose.animation.core.LinearEasing,
-            ),
-        )
-        if (!triggered) {
+    LaunchedEffect(key, paused) {
+        if (paused || triggered) return@LaunchedEffect
+        val remaining = ((1f - progress.value).coerceIn(0f, 1f) * durationMs).toInt()
+        if (remaining > 0) {
+            progress.animateTo(
+                targetValue = 1f,
+                animationSpec = androidx.compose.animation.core.tween(
+                    durationMillis = remaining,
+                    easing = androidx.compose.animation.core.LinearEasing,
+                ),
+            )
+        }
+        if (!triggered && !paused) {
             triggered = true
             onTrigger()
         }
     }
 
+    val fillColor = p.accent.copy(alpha = 0.85f)
     Row(
         Modifier
             .clip(RoundedCornerShape(6.dp))
-            .background(Color.Black.copy(alpha = 0.78f))
-            .border(1.dp, Color.White.copy(alpha = 0.25f), RoundedCornerShape(6.dp)),
+            .background(Color.Black.copy(alpha = 0.82f))
+            .border(1.dp, Color.White.copy(alpha = 0.28f), RoundedCornerShape(6.dp)),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
@@ -1156,25 +1164,36 @@ private fun AutoFillSkipPill(
                     }
                 },
         ) {
-            Box(
-                Modifier
-                    .matchParentSize()
-                    .fillMaxWidth(progress.value.coerceIn(0f, 1f))
-                    .background(p.accent),
-            )
+            // Draw progress fill behind the text using drawBehind so width animates from 0% -> 100% cleanly.
             Row(
-                Modifier.padding(horizontal = 18.dp, vertical = 12.dp),
+                Modifier
+                    .background(Color.Transparent)
+                    .padding(horizontal = 18.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Icon(Icons.Filled.SkipNext, null, Modifier.size(16.dp), tint = Color.White)
                 Text(label.uppercase(), style = Type.eyebrow(11, 0.14f), color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
+            Box(
+                Modifier
+                    .align(Alignment.BottomStart)
+                    .matchParentSize()
+                    .background(Color.Transparent),
+            ) {
+                Box(
+                    Modifier
+                        .align(Alignment.BottomStart)
+                        .fillMaxWidth(progress.value.coerceIn(0f, 1f))
+                        .height(3.dp)
+                        .background(fillColor),
+                )
+            }
         }
         Box(
             Modifier
                 .size(40.dp)
-                .background(Color.Black.copy(alpha = 0.85f))
+                .background(Color.Black.copy(alpha = 0.9f))
                 .clickable {
                     triggered = true
                     onDismiss()

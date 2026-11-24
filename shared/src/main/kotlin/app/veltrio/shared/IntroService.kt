@@ -7,9 +7,12 @@ import java.util.concurrent.ConcurrentHashMap
  *  Returns cached [Segments] per episode. */
 object IntroService {
     data class Window(val startSec: Double, val endSec: Double)
-    data class Segments(val recap: Window?, val intro: Window?, val outro: Window?)
+    data class Segments(val recap: Window?, val intro: Window?, val outro: Window?) {
+        val isEmpty: Boolean get() = recap == null && intro == null && outro == null
+    }
 
-    private val cache = ConcurrentHashMap<String, Segments?>()
+    private val EMPTY = Segments(null, null, null)
+    private val cache = ConcurrentHashMap<String, Segments>()
 
     private fun parseWindow(el: kotlinx.serialization.json.JsonElement?): Window? {
         if (el == null) return null
@@ -21,7 +24,7 @@ object IntroService {
     suspend fun fetchSegments(imdbId: String, season: Int, episode: Int): Segments? {
         if (!imdbId.startsWith("tt") || season <= 0 || episode <= 0) return null
         val key = "$imdbId|$season|$episode"
-        if (cache.containsKey(key)) return cache[key]
+        cache[key]?.let { return if (it.isEmpty) null else it }
         val segs = try {
             val req = Request.Builder()
                 .url("https://api.introdb.app/segments?imdb_id=$imdbId&season=$season&episode=$episode")
@@ -44,7 +47,7 @@ object IntroService {
         } catch (_: Exception) {
             null
         }
-        cache[key] = segs
+        cache[key] = segs ?: EMPTY
         return segs
     }
 }

@@ -173,6 +173,7 @@ object Pairing {
                     kidsPin = bundle.kidsPin ?: it.kidsPin,
                 )
             }
+            app.veltrio.android.Nav.kidsMode = AppPrefs.current.kidsMode
             Core.clearCatalogCache()
         }
         IptvStore.mergeFavoritesAndHidden(bundle.iptvFavorites, bundle.iptvHiddenGroups)

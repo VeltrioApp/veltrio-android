@@ -100,6 +100,8 @@ fun VeltrioRoot(activity: ComponentActivity, tv: Boolean, sections: @Composable 
             val entry by controller.currentBackStackEntryAsState()
             val inPlayer = entry?.destination?.route?.startsWith("player/") == true
             LaunchedEffect(inPlayer) {
+                Nav.isInPlayer = inPlayer
+                if (!inPlayer) Nav.inPipMode = false
                 val insets = WindowCompat.getInsetsController(window, window.decorView)
                 if (inPlayer) {
                     if (!tv) activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE

@@ -330,10 +330,10 @@ class MediaBrowserServer(kind: MediaServerKind) : MediaServer(kind) {
 
     // -------------------- matching an IMDB title --------------------
 
-    override suspend fun findMovie(imdbId: String, title: String, year: Int?) = findItems(tr("Movie"), imdbId, title, year).map(::match)
+    override suspend fun findMovie(imdbId: String, title: String, year: Int?) = findItems("Movie", imdbId, title, year).map(::match)
 
     override suspend fun findEpisode(seriesImdbId: String, title: String, year: Int?, season: Int, episode: Int): List<MediaServerMatch> =
-        findItems(tr("Series"), seriesImdbId, title, year).flatMap { series ->
+        findItems("Series", seriesImdbId, title, year).flatMap { series ->
             tryGet(get("/Shows/${series.str("Id")}/Episodes?UserId=${saved.userId}&Season=$season&Fields=MediaStreams"))
                 .array("Items").filter { it.int("ParentIndexNumber") == season && it.int("IndexNumber") == episode }.map(::match)
         }
@@ -497,7 +497,7 @@ class PlexServer : MediaServer(MediaServerKind.Plex) {
         val (base, t) = access() ?: return MediaLibraryPage(emptyList(), 0)
         val url = "$base/library/sections/${section.id}/all?type=${if (section.kind == MediaSectionKind.Shows) 2 else 1}" +
             "&includeGuids=1&sort=titleSort&X-Plex-Container-Start=$start&X-Plex-Container-Size=$limit"
-        val container = tryGet(request(url, t).build())?.get(tr("MediaContainer")) ?: return MediaLibraryPage(emptyList(), 0)
+        val container = tryGet(request(url, t).build())?.get("MediaContainer") ?: return MediaLibraryPage(emptyList(), 0)
         val rows = container.array("Metadata")
         val items = rows.mapNotNull { m ->
             MediaLibraryItem(

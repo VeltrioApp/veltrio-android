@@ -218,7 +218,7 @@ private fun ParentalControlSection() {
                 }
                 GhostButton(tr("Annuler")) { unlocking = false; pinInput = ""; pinError = null }
             }
-        } else {
+        } else if (!kidsMode || savedPin.isEmpty()) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 BasicTextField(
                     value = pinInput,
