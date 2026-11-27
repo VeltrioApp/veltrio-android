@@ -353,12 +353,11 @@ private fun PlaylistView(playlist: PlaylistRef, playlists: List<PlaylistRef>, on
                 key(guideVersion) { Guide(playlist, visible.take(300), now) }
             }
             else -> {
-                if (current != null) item(key = "hero-${current.id}-$guideVersion-$now") { ChannelHero(playlist, current, now) }
                 items(visible, key = { it.id }) { c ->
                     key(guideVersion) {
                         ChannelRow(c, c.id == current?.id, now) {
-                            if (c.id == current?.id) Nav.play(PlayRequest.forChannel(c, playlist))
-                            else selected = c
+                            selected = c
+                            Nav.play(PlayRequest.forChannel(c, playlist))
                         }
                     }
                 }
