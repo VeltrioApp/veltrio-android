@@ -50,8 +50,13 @@ fun PosterCard(
     onLongClick: (() -> Unit)? = null, onClick: () -> Unit,
 ) {
     val p = VeltrioTheme.palette
+    val tv = app.veltrio.android.LocalTv.current
     val focusMod = if (onFocused != null) Modifier.onFocusChanged { if (it.isFocused) onFocused() } else Modifier
-    Column(Modifier.width(width).then(focusMod).combinedClickable(onClick = onClick, onLongClick = onLongClick), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    val innerPad = if (tv) Modifier.padding(6.dp) else Modifier
+    Column(
+        Modifier.width(if (tv) width + 12.dp else width).then(focusMod).combinedClickable(onClick = onClick, onLongClick = onLongClick).then(innerPad),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
         Box(Modifier.fillMaxWidth().aspectRatio(if (logo) 1f else 2f / 3f).background(p.surface).border(1.dp, p.border)) {
             Text(
                 title.take(1).uppercase(), style = Type.displaySerif(28), color = p.textQuaternary,

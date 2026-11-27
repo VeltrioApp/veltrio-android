@@ -403,7 +403,11 @@ private fun Hero(item: PosterItem) {
 @Composable
 private fun ContinueCard(entry: WatchEntry) {
     val p = VeltrioTheme.palette
-    Column(Modifier.width(240.dp).clickable { openEntry(entry) }, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    val tv = app.veltrio.android.LocalTv.current
+    Column(
+        Modifier.width(if (tv) 252.dp else 240.dp).clickable { openEntry(entry) }.padding(if (tv) 6.dp else 0.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
         Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(p.surface)) {
             AsyncImage(entry.background ?: entry.poster, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.4f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.65f))))

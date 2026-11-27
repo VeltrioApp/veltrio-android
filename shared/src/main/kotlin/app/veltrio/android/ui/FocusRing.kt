@@ -55,30 +55,29 @@ class FocusRing(private val color: Color, private val contrast: Boolean = false)
 
         override fun ContentDrawScope.draw() {
             drawContent()
-            if (pressed > 0) drawRect(color.copy(alpha = 0.25f))
+            val radius = androidx.compose.ui.geometry.CornerRadius(10.dp.toPx())
+            if (pressed > 0) drawRoundRect(color.copy(alpha = 0.22f), cornerRadius = radius)
             if (focused > 0) {
                 if (contrast) {
-                    drawRect(Color.White.copy(alpha = 0.16f))
-                    val outer = 3.5.dp.toPx()
-                    val inner = 1.5.dp.toPx()
-                    val inset = outer + inner / 2
-                    drawRect(
-                        Color.Black.copy(alpha = 0.75f),
-                        topLeft = androidx.compose.ui.geometry.Offset(inset, inset),
-                        size = androidx.compose.ui.geometry.Size(size.width - inset * 2, size.height - inset * 2),
-                        style = Stroke(inner),
-                    )
-                    drawRect(
+                    drawRoundRect(Color.White.copy(alpha = 0.14f), cornerRadius = radius)
+                    val outer = 2.5.dp.toPx()
+                    drawRoundRect(
                         Color.White,
                         topLeft = androidx.compose.ui.geometry.Offset(outer / 2, outer / 2),
                         size = androidx.compose.ui.geometry.Size(size.width - outer, size.height - outer),
+                        cornerRadius = radius,
                         style = Stroke(outer),
                     )
                 } else {
-                    drawRect(color.copy(alpha = 0.12f))
-                    val w = 3.dp.toPx()
-                    drawRect(color, topLeft = androidx.compose.ui.geometry.Offset(w / 2, w / 2),
-                        size = androidx.compose.ui.geometry.Size(size.width - w, size.height - w), style = Stroke(w))
+                    drawRoundRect(color.copy(alpha = 0.06f), cornerRadius = radius)
+                    val w = 2.dp.toPx()
+                    drawRoundRect(
+                        color.copy(alpha = 0.95f),
+                        topLeft = androidx.compose.ui.geometry.Offset(w / 2, w / 2),
+                        size = androidx.compose.ui.geometry.Size(size.width - w, size.height - w),
+                        cornerRadius = radius,
+                        style = Stroke(w),
+                    )
                 }
             }
         }
