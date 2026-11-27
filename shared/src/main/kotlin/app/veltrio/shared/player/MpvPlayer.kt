@@ -177,6 +177,7 @@ class MpvPlayer(context: Context) : SurfaceHolder.Callback, MPVLib.EventObserver
 
     /** "fit", "fill" (crop to the screen) or "stretch". */
     fun setAspect(mode: String) {
+        if (released) return
         mpv.setPropertyDouble("panscan", if (mode == "fill") 1.0 else 0.0)
         mpv.setPropertyString("keepaspect", if (mode == "stretch") "no" else "yes")
     }
@@ -185,7 +186,17 @@ class MpvPlayer(context: Context) : SurfaceHolder.Callback, MPVLib.EventObserver
         if (released) return
         released = true
         mpv.removeObserver(this)
-        mpv.destroy()
+        val instance = mpv
+        // Detach surface and terminate libmpv off the main thread so slow MediaCodec /
+        // network demuxer teardown can never trigger a 5s main-thread ANR.
+        Thread({
+            runCatching {
+                instance.setPropertyString("vo", "null")
+                instance.setOptionString("force-window", "no")
+                instance.detachSurface()
+            }
+            runCatching { instance.destroy() }
+        }, "mpv-release").start()
     }
 
     // -------------------- surface --------------------
