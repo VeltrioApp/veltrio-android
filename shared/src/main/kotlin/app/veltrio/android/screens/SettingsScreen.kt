@@ -281,7 +281,9 @@ internal fun TextInput(
     keyboardOptions: androidx.compose.foundation.text.KeyboardOptions = androidx.compose.foundation.text.KeyboardOptions.Default,
 ) {
     val p = VeltrioTheme.palette
-    app.veltrio.android.ui.RemoteTextField(modifier.fillMaxWidth().border(1.dp, p.borderStrong).padding(12.dp)) { fieldModifier ->
+    app.veltrio.android.ui.RemoteTextField(
+        modifier.fillMaxWidth().border(1.dp, p.borderStrong, androidx.compose.foundation.shape.RoundedCornerShape(10.dp)),
+    ) { fieldModifier ->
         if (value.isEmpty()) Text(placeholder, style = Type.mono(13), color = p.textQuaternary)
         BasicTextField(
             value, onChange, fieldModifier.fillMaxWidth(), singleLine = true,

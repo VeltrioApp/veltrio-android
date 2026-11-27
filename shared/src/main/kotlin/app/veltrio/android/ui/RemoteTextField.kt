@@ -2,6 +2,8 @@ package app.veltrio.android.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -20,16 +22,20 @@ import app.veltrio.android.LocalTv
  *  D-pad) whenever the focus crosses the field. On a phone, the field as is.
  *  [field] gets the modifier to put on the text field itself. */
 @Composable
-fun RemoteTextField(modifier: Modifier = Modifier, field: @Composable (Modifier) -> Unit) {
+fun RemoteTextField(
+    modifier: Modifier = Modifier,
+    contentPadding: androidx.compose.ui.unit.Dp = 12.dp,
+    field: @Composable (Modifier) -> Unit,
+) {
     if (!LocalTv.current) {
-        Box(modifier) { field(Modifier) }
+        Box(modifier.padding(contentPadding)) { field(Modifier) }
         return
     }
     var editing by remember { mutableStateOf(false) }
     var focused by remember { mutableStateOf(false) }
     val requester = remember { FocusRequester() }
     LaunchedEffect(editing) { if (editing) runCatching { requester.requestFocus() } }
-    Box(modifier.focusProperties { canFocus = !editing }.clickable { editing = true }) {
+    Box(modifier.focusProperties { canFocus = !editing }.clickable { editing = true }.padding(contentPadding)) {
         field(
             Modifier.focusRequester(requester).focusProperties { canFocus = editing }.onFocusChanged {
                 // Leaving the field (D-pad away) ends the edit.

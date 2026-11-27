@@ -98,7 +98,7 @@ fun SearchScreen() {
         Column(Modifier.padding(horizontal = Spacing.lg), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Eyebrow(tr("Recherche"))
             Row(
-                Modifier.fillMaxWidth().border(1.dp, if (query.isEmpty()) p.borderStrong else p.accent).padding(14.dp),
+                Modifier.fillMaxWidth().border(1.dp, if (query.isEmpty()) p.borderStrong else p.accent, androidx.compose.foundation.shape.RoundedCornerShape(10.dp)).padding(14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(Modifier.weight(1f)) {
