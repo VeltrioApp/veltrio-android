@@ -234,91 +234,108 @@ fun HomeScreen() {
 
 @Composable
 private fun DiscoverSection(onFocused: ((PosterItem) -> Unit)? = null) {
-    val p = VeltrioTheme.palette
-    val tmdb by TmdbService.state.collectAsState()
-    var mediaType by remember { mutableStateOf("movie") }
-    var selectedProvider by remember { mutableStateOf<Int?>(null) }
-    var selectedGenre by remember { mutableStateOf<TmdbService.DiscoverGenre?>(null) }
-    var results by remember { mutableStateOf<List<PosterItem>?>(null) }
-    val active = selectedProvider != null || selectedGenre != null
-
-    LaunchedEffect(mediaType, selectedProvider, selectedGenre, tmdb.language) {
-        if (!active) {
-            results = null
-            return@LaunchedEffect
-        }
-        results = null
-        val gid = selectedGenre?.let { if (mediaType == "series") it.tvId else it.movieId }
-        results = runCatching { TmdbService.discover(mediaType, gid, selectedProvider) }.getOrDefault(emptyList())
-    }
+    val tv = app.veltrio.android.LocalTv.current
 
     Column(Modifier.padding(top = Spacing.md), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        // Streaming provider logo cards
-        LazyRow(contentPadding = PaddingValues(horizontal = Spacing.lg), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            items(TmdbService.discoverProviders, key = { "prov-${it.id}" }) { prov ->
-                val selected = selectedProvider == prov.id
-                Row(
-                    Modifier
-                        .background(
-                            if (selected) p.accent.copy(alpha = 0.16f) else p.surface,
-                            androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-                        )
-                        .clickable { selectedProvider = if (selected) null else prov.id }
-                        .padding(start = 6.dp, end = 14.dp, top = 6.dp, bottom = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    AsyncImage(
-                        model = prov.logoUrl,
-                        contentDescription = prov.name,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .width(38.dp)
-                            .height(38.dp)
-                            .background(p.backgroundAlt, androidx.compose.foundation.shape.RoundedCornerShape(8.dp)),
-                    )
-                    Text(
-                        prov.name,
-                        style = Type.label(13, if (selected) androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.SemiBold),
-                        color = if (selected) p.accentText else p.textPrimary,
-                        maxLines = 1,
-                    )
+        // Row 1: Streaming Platform Hub Cards — full-width on TV, scrollable on phone
+        if (tv) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = Spacing.lg),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                TmdbService.discoverProviders.forEach { prov ->
+                    PlatformHubCard(prov, tv = true, modifier = Modifier.weight(1f))
+                }
+            }
+        } else {
+            LazyRow(contentPadding = PaddingValues(horizontal = Spacing.lg), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                items(TmdbService.discoverProviders, key = { "prov-${it.id}" }) { prov ->
+                    PlatformHubCard(prov, tv = false, modifier = Modifier.width(138.dp))
                 }
             }
         }
-        LazyRow(contentPadding = PaddingValues(horizontal = Spacing.lg), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            item {
-                Chip(tr("Films"), mediaType == "movie") { mediaType = "movie" }
+
+        // Row 2: Genre Hub Cards — full-width on TV, scrollable on phone
+        if (tv) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = Spacing.lg),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                TmdbService.discoverGenres.forEach { g ->
+                    GenreHubCard(g, tv = true, modifier = Modifier.weight(1f))
+                }
             }
-            item {
-                Chip(tr("Séries"), mediaType == "series") { mediaType = "series" }
-            }
-            items(TmdbService.discoverGenres, key = { "gen-${it.movieId}" }) { g ->
-                Chip(g.label, selectedGenre == g) { selectedGenre = if (selectedGenre == g) null else g }
-            }
-            if (active) {
-                item {
-                    Chip(tr("Effacer les filtres"), false) {
-                        selectedProvider = null
-                        selectedGenre = null
-                    }
+        } else {
+            LazyRow(contentPadding = PaddingValues(horizontal = Spacing.lg), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(TmdbService.discoverGenres, key = { "gen-${it.movieId}" }) { g ->
+                    GenreHubCard(g, tv = false, modifier = Modifier.width(126.dp))
                 }
             }
         }
-        if (active) {
-            val items = results
-            when {
-                items == null -> Text(tr("Chargement…"), style = Type.caption(12), color = p.textTertiary, modifier = Modifier.padding(horizontal = Spacing.lg))
-                items.isEmpty() -> Text(tr("Rien dans ce catalogue."), style = Type.caption(12), color = p.textTertiary, modifier = Modifier.padding(horizontal = Spacing.lg))
-                else -> LazyRow(contentPadding = PaddingValues(horizontal = Spacing.lg), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    items(items, key = { "disc-${it.id}" }) { item ->
-                        PosterCard(item.title, item.posterUrl, item.subtitle, onFocused = { onFocused?.invoke(item) }) {
-                            openPoster(item)
-                        }
-                    }
-                }
-            }
-        }
+    }
+}
+
+@Composable
+private fun PlatformHubCard(prov: TmdbService.DiscoverProvider, tv: Boolean, modifier: Modifier = Modifier) {
+    val p = VeltrioTheme.palette
+    val brand = Color(prov.colorHex)
+    val shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+    val logoShape = androidx.compose.foundation.shape.RoundedCornerShape(9.dp)
+    Column(
+        modifier
+            .height(if (tv) 88.dp else 78.dp)
+            .background(
+                Brush.linearGradient(listOf(brand.copy(alpha = 0.28f), p.surface)),
+                shape,
+            )
+            .clickable { Nav.openProviderHub(prov) }
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        AsyncImage(
+            model = prov.logoUrl,
+            contentDescription = prov.name,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .width(if (tv) 40.dp else 36.dp)
+                .height(if (tv) 40.dp else 36.dp)
+                .background(p.backgroundAlt, logoShape),
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            prov.name,
+            style = Type.label(if (tv) 12 else 11, androidx.compose.ui.text.font.FontWeight.SemiBold),
+            color = p.textPrimary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
+private fun GenreHubCard(genre: TmdbService.DiscoverGenre, tv: Boolean, modifier: Modifier = Modifier) {
+    val p = VeltrioTheme.palette
+    val brand = Color(genre.colorHex)
+    val shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp)
+    Box(
+        modifier
+            .height(if (tv) 46.dp else 44.dp)
+            .background(
+                Brush.horizontalGradient(listOf(brand.copy(alpha = 0.32f), p.surface)),
+                shape,
+            )
+            .clickable { Nav.openGenreHub(genre) }
+            .padding(horizontal = 12.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            genre.label,
+            style = Type.label(12, androidx.compose.ui.text.font.FontWeight.SemiBold),
+            color = p.textPrimary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 

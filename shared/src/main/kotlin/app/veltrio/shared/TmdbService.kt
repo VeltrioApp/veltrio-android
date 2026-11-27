@@ -196,34 +196,41 @@ object TmdbService {
             .mapNotNull { parsePoster(it, if (isSeries) "series" else "movie", genres, addon) }
     }
 
-    data class DiscoverProvider(val id: Int, val name: String, val logoUrl: String)
+    data class DiscoverProvider(val id: Int, val name: String, val logoUrl: String, val colorHex: Long)
 
     /** Popular streaming providers and quick genres for the Discover bar. */
     val discoverProviders: List<DiscoverProvider> = listOf(
-        DiscoverProvider(8, "Netflix", "https://image.tmdb.org/t/p/w154/pbpMk2JmcoNnQwx5JGpXngfoWtp.jpg"),
-        DiscoverProvider(350, "Apple TV+", "https://image.tmdb.org/t/p/w154/2E03IAZsX4ZaUqM7tXlctEPMGWS.jpg"),
-        DiscoverProvider(337, "Disney+", "https://image.tmdb.org/t/p/w154/97yvRBw1GzX7fXprcF80er19ot.jpg"),
-        DiscoverProvider(119, "Prime Video", "https://image.tmdb.org/t/p/w154/pvske1MyAoymrs5bguRfVqYiM9a.jpg"),
-        DiscoverProvider(1899, "Max", "https://image.tmdb.org/t/p/w154/jbe4gVSfRlbPTdESXhEKpornsfu.jpg"),
-        DiscoverProvider(381, "Canal+", "https://image.tmdb.org/t/p/w154/eBXzkFEupZjKaIKY7zBUaSdCY8I.jpg"),
+        DiscoverProvider(8, "Netflix", "https://image.tmdb.org/t/p/w154/pbpMk2JmcoNnQwx5JGpXngfoWtp.jpg", 0xFFE50914),
+        DiscoverProvider(350, "Apple TV+", "https://image.tmdb.org/t/p/w154/2E03IAZsX4ZaUqM7tXlctEPMGWS.jpg", 0xFF3A3A3C),
+        DiscoverProvider(337, "Disney+", "https://image.tmdb.org/t/p/w154/97yvRBw1GzX7fXprcF80er19ot.jpg", 0xFF113CCF),
+        DiscoverProvider(119, "Prime Video", "https://image.tmdb.org/t/p/w154/pvske1MyAoymrs5bguRfVqYiM9a.jpg", 0xFF00A8E1),
+        DiscoverProvider(1899, "Max", "https://image.tmdb.org/t/p/w154/jbe4gVSfRlbPTdESXhEKpornsfu.jpg", 0xFF002BE7),
+        DiscoverProvider(381, "Canal+", "https://image.tmdb.org/t/p/w154/eBXzkFEupZjKaIKY7zBUaSdCY8I.jpg", 0xFF2C2C2E),
     )
 
-    data class DiscoverGenre(val movieId: Int, val tvId: Int, private val labelKey: String) {
+    data class DiscoverGenre(val movieId: Int, val tvId: Int, private val labelKey: String, val colorHex: Long) {
         val label: String get() = tr(labelKey)
     }
 
     val discoverGenres: List<DiscoverGenre> = listOf(
-        DiscoverGenre(28, 10759, "Action"),
-        DiscoverGenre(878, 10765, "Sci-Fi"),
-        DiscoverGenre(35, 35, "Comédie"),
-        DiscoverGenre(18, 18, "Drame"),
-        DiscoverGenre(53, 9648, "Thriller"),
-        DiscoverGenre(16, 16, "Animation"),
-        DiscoverGenre(27, 9648, "Horreur"),
-        DiscoverGenre(99, 99, "Documentaire"),
+        DiscoverGenre(28, 10759, "Action", 0xFFD9381E),
+        DiscoverGenre(878, 10765, "Sci-Fi", 0xFF0E7490),
+        DiscoverGenre(35, 35, "Comédie", 0xFFD97706),
+        DiscoverGenre(18, 18, "Drame", 0xFF6D28D9),
+        DiscoverGenre(53, 9648, "Thriller", 0xFF374151),
+        DiscoverGenre(16, 16, "Animation", 0xFFDB2777),
+        DiscoverGenre(27, 9648, "Horreur", 0xFF991B1B),
+        DiscoverGenre(99, 99, "Documentaire", 0xFF047857),
     )
 
-    suspend fun discover(type: String, genreId: Int? = null, providerId: Int? = null, page: Int = 1): List<PosterItem> {
+    suspend fun discover(
+        type: String,
+        genreId: Int? = null,
+        providerId: Int? = null,
+        page: Int = 1,
+        sortBy: String = "popularity.desc",
+        minVotes: Int? = null,
+    ): List<PosterItem> {
         val key = SecretStore.get(KEY_SECRET)?.takeIf { it.isNotBlank() } ?: return emptyList()
         val lang = language
         val region = lang.substringAfter('-', "FR").uppercase()
@@ -232,9 +239,12 @@ object TmdbService {
         val kids = AppPrefs.current.kidsMode
         val params = buildList {
             add("language=$lang")
-            add("sort_by=popularity.desc")
+            add("sort_by=$sortBy")
             add("include_adult=false")
             add("page=$page")
+            if (minVotes != null && minVotes > 0) {
+                add("vote_count.gte=$minVotes")
+            }
             if (kids) {
                 add("with_genres=10751|16")
                 if (!isSeries) add("certification_country=US&certification.lte=PG")

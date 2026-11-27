@@ -52,6 +52,8 @@ object Nav {
 
     fun openTitle(request: DetailRequest) = controller.navigate("detail/${keep(request)}")
     fun openCatalog(request: CatalogRequest) = controller.navigate("catalog/${keep(request)}")
+    fun openProviderHub(provider: app.veltrio.shared.TmdbService.DiscoverProvider) = controller.navigate("hub/provider/${keep(provider)}")
+    fun openGenreHub(genre: app.veltrio.shared.TmdbService.DiscoverGenre) = controller.navigate("hub/genre/${keep(genre)}")
     fun play(request: PlayRequest) = controller.navigate("player/${keep(request)}")
     fun openIptvSeries(playlist: app.veltrio.shared.iptv.PlaylistRef, series: app.veltrio.shared.iptv.ChannelItem) =
         controller.navigate("iptvseries/${keep(playlist to series)}")

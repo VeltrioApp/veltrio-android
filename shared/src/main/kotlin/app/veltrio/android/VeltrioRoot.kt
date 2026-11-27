@@ -118,6 +118,8 @@ fun VeltrioRoot(activity: ComponentActivity, tv: Boolean, sections: @Composable 
                     composable("tabs") { sections() }
                     composable("detail/{key}") { DetailScreen(Nav.arg(it.arguments?.getString("key"))!!) }
                     composable("catalog/{key}") { CatalogScreen(Nav.arg(it.arguments?.getString("key"))!!) }
+                    composable("hub/provider/{key}") { app.veltrio.android.screens.ProviderHubScreen(Nav.arg(it.arguments?.getString("key"))!!) }
+                    composable("hub/genre/{key}") { app.veltrio.android.screens.GenreHubScreen(Nav.arg(it.arguments?.getString("key"))!!) }
                     composable("player/{key}") { PlayerScreen(Nav.arg(it.arguments?.getString("key"))!!) }
                     composable("iptvseries/{key}") {
                         val (playlist, series) = Nav.arg<Pair<PlaylistRef, ChannelItem>>(it.arguments?.getString("key"))!!
