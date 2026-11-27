@@ -65,12 +65,12 @@ class MpvPlayer(context: Context) : SurfaceHolder.Callback, MPVLib.EventObserver
     init {
         with(mpv) {
             val prefs = app.veltrio.shared.PlayerPrefs.current
-            // Direct decoding hands frames straight to the screen (the only
-            // way a weak TV box plays 4K HEVC smoothly) but needs mpv's
-            // mediacodec_embed output, which draws no subtitles; the copy
-            // goes through the GPU output and its subtitles.
+            // Use gpu + mediacodec-copy by default on both phone and TV: hardware
+            // decoding when supported, seamless software fallback (no black screen
+            // on 10-bit/4K/AV1), plus full subtitle rendering and HDR tone-mapping.
+            // Users can still opt into direct `mediacodec` (`mediacodec_embed`) in Settings.
             hwdec = when (prefs.hwdec) {
-                "auto" -> if (app.veltrio.shared.Device.isTv) "mediacodec" else "mediacodec-copy"
+                "auto" -> "mediacodec-copy"
                 else -> prefs.hwdec
             }
             if (hwdec == "mediacodec") {
